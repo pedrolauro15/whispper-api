@@ -30,7 +30,7 @@ await app.register(swaggerUI, {
 });
 
 // Configs
-const WHISPER_BIN = process.env.WHISPER_BIN || 'whisper'; // mais rápido
+const WHISPER_BIN = process.env.WHISPER_BIN || 'whisper-ctranslate2'; // mais rápido
 const FALLBACK_BIN = 'whisper';                                       // oficial
 const MODEL = process.env.WHISPER_MODEL || 'base';
 const LANGUAGE = process.env.WHISPER_LANG || ''; // 'pt' ou '' (auto)
