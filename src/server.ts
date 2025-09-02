@@ -5,15 +5,19 @@ import { configDotenv } from 'dotenv';
 import Fastify from 'fastify';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { createWriteStream, promises as fs } from 'node:fs';
+import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
-configDotenv()
+configDotenv();
 
 const app = Fastify({ logger: true });
 
-await app.register(multipart, { limits: { files: 1, fileSize: 50 * 1024 * 1024 } });
+// ✅ multipart com body “real” para validação
+await app.register(multipart, {
+  attachFieldsToBody: 'keyValues', // agora req.body existe e tem { file: { data: Buffer, filename, mimetype, ... } }
+  limits: { files: 1, fileSize: 50 * 1024 * 1024 }
+}); // Doc: attachFieldsToBody 'keyValues'. :contentReference[oaicite:2]{index=2}
 
 await app.register(swagger, {
   openapi: {
@@ -27,10 +31,10 @@ await app.register(swaggerUI, {
 });
 
 // Configs
-const WHISPER_BIN = process.env.WHISPER_BIN || 'whisper-ctranslate2'; // tenta o rápido
-const FALLBACK_BIN = 'whisper';                                       // fallback oficial
+const WHISPER_BIN = process.env.WHISPER_BIN || 'whisper-ctranslate2'; // mais rápido
+const FALLBACK_BIN = 'whisper';                                       // oficial
 const MODEL = process.env.WHISPER_MODEL || 'base';
-const LANGUAGE = process.env.WHISPER_LANG || ''; // ex: 'pt'. Vazio = autodetect
+const LANGUAGE = process.env.WHISPER_LANG || ''; // 'pt' ou '' (auto)
 
 function runWhisperCLI(inputPath: string) {
   return new Promise<{ jsonPath: string; outDir: string }>((resolve, reject) => {
@@ -39,7 +43,6 @@ function runWhisperCLI(inputPath: string) {
     const args = [inputPath, '--output_format', 'json', '--output_dir', outDir, '--model', MODEL];
     if (LANGUAGE) args.push('--language', LANGUAGE);
 
-    // tenta bin rápido; se falhar, usa o oficial
     const p = spawn(WHISPER_BIN, args, { stdio: 'inherit' });
     p.on('error', () => {
       const p2 = spawn(FALLBACK_BIN, args, { stdio: 'inherit' });
@@ -56,16 +59,23 @@ function runWhisperCLI(inputPath: string) {
   });
 }
 
-// schema OpenAPI p/ doc interativa
+// ✅ OpenAPI 3: requestBody com multipart/form-data (arquivo binário)
 const transcribeSchema = {
   summary: 'Transcreve um áudio via Whisper CLI',
-  consumes: ['multipart/form-data'],
-  body: {
-    type: 'object',
-    properties: {
-      file: { type: 'string', format: 'binary' }
-    },
-    required: ['file']
+  tags: ['transcription'],
+  requestBody: {
+    required: true,
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
+          properties: {
+            file: { type: 'string', format: 'binary' }
+          },
+          required: ['file']
+        }
+      }
+    }
   },
   response: {
     200: {
@@ -79,13 +89,16 @@ const transcribeSchema = {
 };
 
 app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, reply) => {
-  const part = await req.file();
-  if (!part) return reply.code(400).send({ error: 'campo "file" ausente' });
+  // ⚠️ Com attachFieldsToBody, use req.body (não use req.file())
+  const b = req.body as any;
+  if (!b?.file) return reply.code(400).send({ error: 'campo "file" ausente' });
+  if (!b.file?.data) return reply.code(400).send({ error: 'arquivo inválido' });
 
-  const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${part.filename || 'audio'}`);
-  await new Promise<void>((res, rej) => {
-    part.file.pipe(createWriteStream(tmpPath)).on('finish', () => res()).on('error', rej);
-  });
+  const filename = b.file.filename || 'audio';
+  const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
+
+  // b.file.data é Buffer
+  await fs.writeFile(tmpPath, b.file.data);
 
   try {
     const { jsonPath } = await runWhisperCLI(tmpPath);
@@ -102,7 +115,7 @@ app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, re
 
 // Página de teste simples
 app.get('/playground', async (req, reply) => {
-  const html =  `
+  const html = `
 <!doctype html>
 <html lang="pt-br">
 <head>
@@ -123,7 +136,7 @@ app.get('/playground', async (req, reply) => {
 <body>
   <header>
     <h1>Whisper Playground</h1>
-    <nav><a href="/documentation" target="_blank">Swagger UI</a></nav>
+    <nav><a href="/docs" target="_blank">Swagger UI</a></nav>
   </header>
 
   <div class="card">
@@ -146,7 +159,6 @@ app.get('/playground', async (req, reply) => {
       if (!f) { alert('Selecione um arquivo.'); return; }
       const fd = new FormData();
       fd.append('file', f);
-
       status.textContent = 'Transcrevendo...';
       out.textContent = '';
       try {
@@ -162,14 +174,12 @@ app.get('/playground', async (req, reply) => {
     };
   </script>
 </body>
-</html>`
-   return reply
-    .type('text/html; charset=utf-8')   // 👈 obrigatório
-    .send(html);
+</html>`;
+  return reply.type('text/html; charset=utf-8').send(html);
 });
 
-// gera o spec e sobe
+// sobe
 await app.ready();
-app.swagger(); // importante p/ expor /documentation/json,yaml
+app.swagger();
 const port = Number(process.env.PORT || 3333);
 app.listen({ port, host: '0.0.0.0' }).catch((e) => { app.log.error(e); process.exit(1); });
