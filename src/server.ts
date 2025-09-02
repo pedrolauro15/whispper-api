@@ -90,6 +90,9 @@ const transcribeSchema = {
 
 app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, reply) => {
   // ⚠️ Com attachFieldsToBody, use req.body (não use req.file())
+  console.log(req.file);
+  console.log(req.body);
+
   const b = req.body as any;
   if (!b?.file) return reply.code(400).send({ error: 'campo "file" ausente' });
   if (!b.file?.data) return reply.code(400).send({ error: 'arquivo inválido' });
