@@ -47,6 +47,10 @@ function runWhisperCLI(inputPath: string) {
     
     const stats = fs.statSync(inputPath);
     console.log(`runWhisperCLI: Arquivo existe, tamanho: ${stats.size} bytes`);
+
+    if(!fs.existsSync(tmpdir())) {
+      fs.mkdirSync(tmpdir(), { recursive: true });
+    }
     
     const outDir = join(tmpdir(), `whisper-out-${randomUUID()}`);
     const base = basename(inputPath).replace(/\.[^/.]+$/, '');
