@@ -13,10 +13,11 @@ configDotenv();
 
 const app = Fastify({ logger: true });
 
-// ✅ multipart com body “real” para validação
+// ✅ multipart com body "real" para validação
 await app.register(multipart, {
   attachFieldsToBody: 'keyValues', // agora req.body existe e tem { file: { data: Buffer, filename, mimetype, ... } }
-  limits: { files: 1, fileSize: 50 * 1024 * 1024 }
+  limits: { files: 1, fileSize: 50 * 1024 * 1024 },
+  throwFileSizeLimit: false
 }); // Doc: attachFieldsToBody 'keyValues'. :contentReference[oaicite:2]{index=2}
 
 await app.register(swagger, {
@@ -89,28 +90,46 @@ const transcribeSchema = {
 };
 
 app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, reply) => {
-  const b = req.body as any;
-  console.log(Object.keys(req.body.file));
-  
-  if (!b?.file) return reply.code(400).send({ error: 'campo "file" ausente' });
-  if (!b.file) return reply.code(400).send({ error: 'arquivo inválido' });
-
-  const filename = b.file.filename || 'audio';
-  const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
-
-  // b.file.data é Buffer
-  await fs.writeFile(tmpPath, b.file);
-
   try {
-    const { jsonPath } = await runWhisperCLI(tmpPath);
-    const raw = await fs.readFile(jsonPath, 'utf8');
-    const data = JSON.parse(raw);
-    return reply.send({ text: (data.text || '').trim(), segments: data.segments || [] });
+    const b = req.body as any;
+    
+    req.log.info('Recebido request de transcrição');
+    req.log.info('Body keys:', Object.keys(b || {}));
+    
+    if (!b?.file) {
+      req.log.error('Campo file ausente no body');
+      return reply.code(400).send({ error: 'campo "file" ausente' });
+    }
+    
+    req.log.info('File keys:', Object.keys(b.file || {}));
+    
+    if (!b.file.data) {
+      req.log.error('File.data ausente ou vazio');
+      return reply.code(400).send({ error: 'arquivo inválido ou vazio' });
+    }
+
+    const filename = b.file.filename || 'audio';
+    const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
+
+    req.log.info(`Salvando arquivo temporário: ${tmpPath}`);
+    
+    // b.file.data é Buffer
+    await fs.writeFile(tmpPath, b.file.data);
+
+    try {
+      const { jsonPath } = await runWhisperCLI(tmpPath);
+      const raw = await fs.readFile(jsonPath, 'utf8');
+      const data = JSON.parse(raw);
+      return reply.send({ text: (data.text || '').trim(), segments: data.segments || [] });
+    } catch (e: any) {
+      req.log.error('Erro na transcrição:', e);
+      return reply.code(500).send({ error: 'falha na transcrição', detail: e?.message });
+    } finally {
+      fs.unlink(tmpPath).catch(() => {});
+    }
   } catch (e: any) {
-    req.log.error(e);
-    return reply.code(500).send({ error: 'falha na transcrição', detail: e?.message });
-  } finally {
-    fs.unlink(tmpPath).catch(() => {});
+    req.log.error('Erro geral no endpoint:', e);
+    return reply.code(500).send({ error: 'erro interno do servidor', detail: e?.message });
   }
 });
 
@@ -153,25 +172,63 @@ app.get('/playground', async (req, reply) => {
 
   <script>
     const sendBtn = document.getElementById('send');
+    const fileInput = document.getElementById('file');
     const out = document.getElementById('out');
     const status = document.getElementById('status');
+    
     sendBtn.onclick = async () => {
-      const f = document.getElementById('file').files[0];
-      if (!f) { alert('Selecione um arquivo.'); return; }
+      const f = fileInput.files[0];
+      if (!f) { 
+        alert('Selecione um arquivo.'); 
+        return; 
+      }
+      
+      // Verificar se é um arquivo de áudio/vídeo
+      if (!f.type.startsWith('audio/') && !f.type.startsWith('video/')) {
+        alert('Por favor, selecione um arquivo de áudio ou vídeo.');
+        return;
+      }
+      
       const fd = new FormData();
       fd.append('file', f);
-      status.textContent = 'Transcrevendo...';
+      
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Transcrevendo...';
+      status.textContent = 'Enviando arquivo...';
       out.textContent = '';
+      
       try {
-        const res = await fetch('/transcribe', { method: 'POST', body: fd });
+        status.textContent = 'Processando transcrição...';
+        const res = await fetch('/transcribe', { 
+          method: 'POST', 
+          body: fd 
+        });
+        
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || res.statusText);
+        
+        if (!res.ok) {
+          throw new Error(json.error || json.detail || res.statusText);
+        }
+        
         out.textContent = JSON.stringify(json, null, 2);
-        status.textContent = 'OK';
+        status.textContent = 'Transcrição concluída com sucesso!';
+        status.style.color = 'green';
       } catch (e) {
-        status.textContent = 'Erro';
-        out.textContent = String(e);
+        status.textContent = 'Erro: ' + e.message;
+        status.style.color = 'red';
+        out.textContent = 'Erro detalhado: ' + e.message;
+        console.error('Erro na transcrição:', e);
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Transcrever';
       }
+    };
+    
+    // Reset status color when selecting new file
+    fileInput.onchange = () => {
+      status.textContent = '';
+      status.style.color = '';
+      out.textContent = '';
     };
   </script>
 </body>
