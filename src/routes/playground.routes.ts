@@ -337,7 +337,7 @@ function generatePlaygroundHTML(): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
     }
     
     .result-title {
@@ -347,7 +347,12 @@ function generatePlaygroundHTML(): string {
       margin: 0;
     }
     
-    .copy-btn {
+    .result-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .action-btn {
       padding: 0.5rem 1rem;
       background: var(--gray-100);
       border: 1px solid var(--gray-200);
@@ -357,13 +362,114 @@ function generatePlaygroundHTML(): string {
       color: var(--gray-700);
       cursor: pointer;
       transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
     }
     
-    .copy-btn:hover {
+    .action-btn:hover {
       background: var(--gray-200);
     }
     
-    .result-content {
+    .action-btn.primary {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    
+    .action-btn.primary:hover {
+      background: var(--primary-dark);
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--gray-200);
+      margin-bottom: 1rem;
+      gap: 0.5rem;
+    }
+    
+    .tab {
+      padding: 0.75rem 1.5rem;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+      color: var(--gray-600);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .tab:hover {
+      color: var(--gray-800);
+      background: var(--gray-50);
+    }
+    
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: var(--gray-50);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .text-result {
+      background: var(--gray-50);
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid var(--gray-200);
+      font-size: 1rem;
+      line-height: 1.7;
+      color: var(--gray-800);
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .segments-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .segment {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .segment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--gray-600);
+    }
+    
+    .segment-time {
+      font-weight: 500;
+      background: var(--primary);
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+    }
+    
+    .segment-text {
+      color: var(--gray-800);
+      line-height: 1.6;
+    }
+    
+    .json-result {
       background: var(--gray-900);
       color: #e5e7eb;
       padding: 1.5rem;
@@ -372,10 +478,68 @@ function generatePlaygroundHTML(): string {
       font-size: 0.875rem;
       line-height: 1.6;
       overflow-x: auto;
-      max-height: 500px;
+      max-height: 400px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+    
+    .video-section {
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      background: var(--gray-50);
+      border-radius: 12px;
+      border: 1px solid var(--gray-200);
+      display: none;
+    }
+    
+    .video-section.show {
+      display: block;
+    }
+    
+    .video-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin: 0 0 1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .subtitle-info {
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      color: var(--primary-dark);
+    }
+    
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    
+    .dropdown-item {
+      display: block;
+      padding: 0.5rem 0.75rem;
+      color: var(--gray-700);
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+      margin-bottom: 2px;
+    }
+    
+    .dropdown-item:hover {
+      background: var(--gray-100);
+      color: var(--gray-800);
+    }
+    
+    #download-menu {
+      position: relative;
+      cursor: pointer;
     }
     
     .footer {
@@ -486,9 +650,51 @@ function generatePlaygroundHTML(): string {
       <div class="result-section" id="result-section">
         <div class="result-header">
           <h3 class="result-title">📝 Resultado da Transcrição</h3>
-          <button class="copy-btn" id="copy-btn">📋 Copiar</button>
+          <div class="result-actions">
+            <button class="action-btn" id="copy-btn">📋 Copiar</button>
+            <div class="action-btn" id="download-menu">
+              📥 Download ▼
+              <div class="dropdown-menu" id="dropdown-menu" style="display: none; position: absolute; top: 100%; right: 0; background: white; border: 1px solid var(--gray-200); border-radius: 8px; padding: 0.5rem; min-width: 150px; box-shadow: var(--shadow-lg); z-index: 10;">
+                <a href="#" class="dropdown-item" id="download-txt">� Texto (.txt)</a>
+                <a href="#" class="dropdown-item" id="download-json">📊 JSON (.json)</a>
+                <a href="#" class="dropdown-item" id="download-srt">🎬 Legenda (.srt)</a>
+                <a href="#" class="dropdown-item" id="download-vtt">🎭 WebVTT (.vtt)</a>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="result-content" id="output"></div>
+        
+        <div class="tabs">
+          <button class="tab active" data-tab="text">📝 Texto Limpo</button>
+          <button class="tab" data-tab="segments">⏱️ Segmentos</button>
+          <button class="tab" data-tab="json">📊 JSON Completo</button>
+        </div>
+        
+        <div class="tab-content active" id="tab-text">
+          <div class="text-result" id="text-output"></div>
+        </div>
+        
+        <div class="tab-content" id="tab-segments">
+          <div class="segments-list" id="segments-output"></div>
+        </div>
+        
+        <div class="tab-content" id="tab-json">
+          <div class="json-result" id="json-output"></div>
+        </div>
+        
+        <div class="video-section" id="video-section">
+          <h4 class="video-title">🎬 Opções de Vídeo</h4>
+          <div class="subtitle-info">
+            <strong>💡 Dica:</strong> Para vídeos, você pode baixar as legendas e aplicá-las usando software como VLC, HandBrake ou editores de vídeo.
+          </div>
+          <div class="download-grid">
+            <button class="action-btn primary" id="generate-subtitled-video">
+              🎥 Gerar Vídeo com Legendas
+            </button>
+            <a href="#" class="action-btn" id="download-srt-video">📥 Download SRT</a>
+            <a href="#" class="action-btn" id="download-vtt-video">📥 Download VTT</a>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -511,8 +717,54 @@ function generatePlaygroundHTML(): string {
     const statusIcon = document.getElementById('status-icon');
     const statusText = document.getElementById('status-text');
     const resultSection = document.getElementById('result-section');
-    const outputDiv = document.getElementById('output');
+    const videoSection = document.getElementById('video-section');
     const copyBtn = document.getElementById('copy-btn');
+    const downloadMenu = document.getElementById('download-menu');
+    const dropdownMenu = document.getElementById('dropdown-menu');
+    
+    // Tab elements
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const textOutput = document.getElementById('text-output');
+    const segmentsOutput = document.getElementById('segments-output');
+    const jsonOutput = document.getElementById('json-output');
+    
+    // Download elements
+    const downloadTxt = document.getElementById('download-txt');
+    const downloadJson = document.getElementById('download-json');
+    const downloadSrt = document.getElementById('download-srt');
+    const downloadVtt = document.getElementById('download-vtt');
+    const downloadSrtVideo = document.getElementById('download-srt-video');
+    const downloadVttVideo = document.getElementById('download-vtt-video');
+    const generateSubtitledVideo = document.getElementById('generate-subtitled-video');
+    
+    let currentResult = null;
+    let currentFile = null;
+    
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+        
+        // Update active tab
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(tc => tc.classList.remove('active'));
+        
+        tab.classList.add('active');
+        document.getElementById(\`tab-\${tabName}\`).classList.add('active');
+      });
+    });
+    
+    // Download menu toggle
+    downloadMenu.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.style.display = dropdownMenu.style.display === 'none' ? 'block' : 'none';
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+      dropdownMenu.style.display = 'none';
+    });
     
     // Drag and drop handlers
     uploadZone.addEventListener('dragover', (e) => {
@@ -540,6 +792,7 @@ function generatePlaygroundHTML(): string {
     
     function handleFileSelect() {
       const file = fileInput.files[0];
+      currentFile = file;
       
       if (file) {
         // Update upload zone
@@ -555,7 +808,7 @@ function generatePlaygroundHTML(): string {
         const uploadText = uploadZone.querySelector('.upload-text');
         const uploadHint = uploadZone.querySelector('.upload-hint');
         
-        uploadIcon.textContent = '✅';
+        uploadIcon.textContent = file.type.startsWith('video/') ? '🎬' : '🎵';
         uploadText.textContent = 'Arquivo selecionado!';
         uploadHint.textContent = 'Clique em "Iniciar Transcrição" para processar';
         
@@ -570,6 +823,7 @@ function generatePlaygroundHTML(): string {
     function resetUploadZone() {
       uploadZone.classList.remove('has-file');
       fileInfo.classList.remove('show');
+      currentFile = null;
       
       const uploadIcon = uploadZone.querySelector('.upload-icon');
       const uploadText = uploadZone.querySelector('.upload-text');
@@ -586,6 +840,27 @@ function generatePlaygroundHTML(): string {
       const sizes = ['Bytes', 'KB', 'MB', 'GB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      const ms = Math.floor((seconds % 1) * 1000);
+      
+      if (h > 0) {
+        return \`\${h.toString().padStart(2, '0')}:\${m.toString().padStart(2, '0')}:\${s.toString().padStart(2, '0')},\${ms.toString().padStart(3, '0')}\`;
+      }
+      return \`\${m.toString().padStart(2, '0')}:\${s.toString().padStart(2, '0')},\${ms.toString().padStart(3, '0')}\`;
+    }
+    
+    function formatTimeVTT(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      const ms = Math.floor((seconds % 1) * 1000);
+      
+      return \`\${h.toString().padStart(2, '0')}:\${m.toString().padStart(2, '0')}:\${s.toString().padStart(2, '0')}.\${ms.toString().padStart(3, '0')}\`;
     }
     
     // Transcription handler
@@ -631,6 +906,7 @@ function generatePlaygroundHTML(): string {
           throw new Error(result.error || result.detail || 'Erro desconhecido');
         }
         
+        currentResult = result;
         showStatus('✅', 'Transcrição concluída com sucesso!', 'success');
         showResults(result);
         
@@ -659,28 +935,70 @@ function generatePlaygroundHTML(): string {
     }
     
     function showResults(result) {
-      // Format result with syntax highlighting
-      const formattedResult = JSON.stringify(result, null, 2);
-      outputDiv.textContent = formattedResult;
+      // Text tab
+      textOutput.textContent = result.text || '';
+      
+      // Segments tab
+      if (result.segments && result.segments.length > 0) {
+        segmentsOutput.innerHTML = result.segments.map(segment => \`
+          <div class="segment">
+            <div class="segment-header">
+              <span class="segment-time">\${formatTime(segment.start)} → \${formatTime(segment.end)}</span>
+              <span>Segmento #\${segment.id + 1}</span>
+            </div>
+            <div class="segment-text">\${segment.text}</div>
+          </div>
+        \`).join('');
+      } else {
+        segmentsOutput.innerHTML = '<p style="color: var(--gray-500); text-align: center; padding: 2rem;">Nenhum segmento disponível</p>';
+      }
+      
+      // JSON tab
+      jsonOutput.textContent = JSON.stringify(result, null, 2);
+      
+      // Show result section
       resultSection.classList.add('show');
+      
+      // Show video section if it's a video file
+      if (currentFile && currentFile.type.startsWith('video/')) {
+        videoSection.classList.add('show');
+      } else {
+        videoSection.classList.remove('show');
+      }
     }
     
     function hideResults() {
       resultSection.classList.remove('show');
+      videoSection.classList.remove('show');
     }
     
-    // Copy to clipboard functionality
+    // Copy functionality
     copyBtn.addEventListener('click', async () => {
+      const activeTab = document.querySelector('.tab.active').dataset.tab;
+      let textToCopy = '';
+      
+      switch (activeTab) {
+        case 'text':
+          textToCopy = textOutput.textContent;
+          break;
+        case 'segments':
+          textToCopy = currentResult.segments.map(s => \`[\${formatTime(s.start)} → \${formatTime(s.end)}] \${s.text}\`).join('\\n');
+          break;
+        case 'json':
+          textToCopy = jsonOutput.textContent;
+          break;
+      }
+      
       try {
-        await navigator.clipboard.writeText(outputDiv.textContent);
+        await navigator.clipboard.writeText(textToCopy);
         copyBtn.innerHTML = '✅ Copiado!';
         setTimeout(() => {
           copyBtn.innerHTML = '📋 Copiar';
         }, 2000);
       } catch (err) {
-        // Fallback for older browsers
+        // Fallback
         const textArea = document.createElement('textarea');
-        textArea.value = outputDiv.textContent;
+        textArea.value = textToCopy;
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
@@ -691,6 +1009,90 @@ function generatePlaygroundHTML(): string {
           copyBtn.innerHTML = '📋 Copiar';
         }, 2000);
       }
+    });
+    
+    // Download functions
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    
+    function generateSRT(segments) {
+      return segments.map((segment, index) => {
+        const startTime = formatTime(segment.start);
+        const endTime = formatTime(segment.end);
+        return \`\${index + 1}\\n\${startTime} --> \${endTime}\\n\${segment.text}\\n\`;
+      }).join('\\n');
+    }
+    
+    function generateVTT(segments) {
+      const header = 'WEBVTT\\n\\n';
+      const content = segments.map((segment, index) => {
+        const startTime = formatTimeVTT(segment.start);
+        const endTime = formatTimeVTT(segment.end);
+        return \`\${startTime} --> \${endTime}\\n\${segment.text}\\n\`;
+      }).join('\\n');
+      return header + content;
+    }
+    
+    // Download event listeners
+    downloadTxt.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentResult) {
+        const filename = currentFile ? currentFile.name.replace(/\\.[^/.]+$/, '') + '.txt' : 'transcricao.txt';
+        downloadFile(currentResult.text, filename, 'text/plain');
+      }
+    });
+    
+    downloadJson.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentResult) {
+        const filename = currentFile ? currentFile.name.replace(/\\.[^/.]+$/, '') + '.json' : 'transcricao.json';
+        downloadFile(JSON.stringify(currentResult, null, 2), filename, 'application/json');
+      }
+    });
+    
+    downloadSrt.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentResult && currentResult.segments) {
+        const filename = currentFile ? currentFile.name.replace(/\\.[^/.]+$/, '') + '.srt' : 'legendas.srt';
+        downloadFile(generateSRT(currentResult.segments), filename, 'text/srt');
+      }
+    });
+    
+    downloadVtt.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentResult && currentResult.segments) {
+        const filename = currentFile ? currentFile.name.replace(/\\.[^/.]+$/, '') + '.vtt' : 'legendas.vtt';
+        downloadFile(generateVTT(currentResult.segments), filename, 'text/vtt');
+      }
+    });
+    
+    downloadSrtVideo.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentResult && currentResult.segments) {
+        const filename = currentFile ? currentFile.name.replace(/\\.[^/.]+$/, '') + '.srt' : 'legendas.srt';
+        downloadFile(generateSRT(currentResult.segments), filename, 'text/srt');
+      }
+    });
+    
+    downloadVttVideo.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentResult && currentResult.segments) {
+        const filename = currentFile ? currentFile.name.replace(/\\.[^/.]+$/, '') + '.vtt' : 'legendas.vtt';
+        downloadFile(generateVTT(currentResult.segments), filename, 'text/vtt');
+      }
+    });
+    
+    generateSubtitledVideo.addEventListener('click', () => {
+      alert('🚧 Funcionalidade em desenvolvimento!\\n\\nEm breve você poderá gerar vídeos com legendas automaticamente.\\n\\nPor enquanto, baixe o arquivo SRT ou VTT e use um editor de vídeo como:\\n• VLC Media Player\\n• HandBrake\\n• FFmpeg\\n• Adobe Premiere\\n• DaVinci Resolve');
     });
     
     // Initialize
