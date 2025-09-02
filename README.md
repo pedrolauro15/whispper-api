@@ -62,6 +62,9 @@ PORT=3333
 WHISPER_BIN=whisper-ctranslate2  # ou 'whisper'
 WHISPER_MODEL=base               # tiny, base, small, medium, large
 WHISPER_LANG=pt                  # ou vazio para auto-detecção
+
+# Upload
+MAX_FILE_SIZE=209715200          # 200MB em bytes (opcional)
 ```
 
 ## 📚 Endpoints da API

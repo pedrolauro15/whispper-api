@@ -14,11 +14,11 @@ export const config = {
   language: process.env.WHISPER_LANG || '', // 'pt' ou '' (auto)
   
   // Upload limits
-  maxFileSize: 50 * 1024 * 1024, // 50MB
+  maxFileSize: Number(process.env.MAX_FILE_SIZE) || 200 * 1024 * 1024, // 200MB padrão
   maxFiles: 1,
   
   // Timeouts
-  whisperTimeout: 30000, // 30 segundos
+  whisperTimeout: 120000, // 120 segundos (2 minutos)
 } as const;
 
 export type Config = typeof config;
