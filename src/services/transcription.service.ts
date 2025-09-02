@@ -6,7 +6,7 @@ import { config } from '../lib/config.js';
 import { FileService } from '../services/file.service.js';
 import { VideoService, type SubtitleStyle } from '../services/video.service.js';
 import { WhisperService } from '../services/whisper.service.js';
-import type { FileUpload, TranscriptionResponse, VideoWithSubtitlesResponse } from '../types/index.js';
+import type { FileUpload, TranscriptionContext, TranscriptionResponse, VideoWithSubtitlesResponse } from '../types/index.js';
 
 export class TranscriptionService {
   private fileService: FileService;
@@ -22,7 +22,7 @@ export class TranscriptionService {
   /**
    * Processa a transcrição completa de um arquivo
    */
-  async transcribeFile(fileUpload: FileUpload): Promise<TranscriptionResponse> {
+  async transcribeFile(fileUpload: FileUpload, context?: TranscriptionContext): Promise<TranscriptionResponse> {
     let tmpPath: string | null = null;
 
     try {
@@ -30,7 +30,7 @@ export class TranscriptionService {
       tmpPath = await this.fileService.processUploadedFile(fileUpload);
 
       // 2. Executar transcrição com timeout
-      const result = await this.executeWithTimeout(tmpPath);
+      const result = await this.executeWithTimeout(tmpPath, context);
 
       // 3. Ler e processar resultado
       const transcription = await this.processTranscriptionResult(result.jsonPath);
@@ -51,7 +51,8 @@ export class TranscriptionService {
   async transcribeAndAddSubtitlesToVideo(
     fileUpload: FileUpload,
     subtitleStyle?: SubtitleStyle,
-    hardcodedSubs: boolean = true
+    hardcodedSubs: boolean = true,
+    context?: TranscriptionContext
   ): Promise<VideoWithSubtitlesResponse> {
     let tmpVideoPath: string | null = null;
     let subtitlesPath: string | null = null;
@@ -62,7 +63,7 @@ export class TranscriptionService {
       tmpVideoPath = await this.fileService.processUploadedFile(fileUpload);
 
       // 2. Transcrever áudio do vídeo
-      const whisperResult = await this.executeWithTimeout(tmpVideoPath);
+      const whisperResult = await this.executeWithTimeout(tmpVideoPath, context);
       const transcription = await this.processTranscriptionResult(whisperResult.jsonPath);
 
       // 3. Gerar arquivo de legendas SRT
@@ -208,7 +209,7 @@ export class TranscriptionService {
   /**
    * Executa a transcrição com timeout
    */
-  private async executeWithTimeout(filePath: string) {
+  private async executeWithTimeout(filePath: string, context?: TranscriptionContext) {
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(
         () => reject(new Error(`Timeout de ${config.whisperTimeout / 1000}s no processamento`)),
@@ -217,7 +218,7 @@ export class TranscriptionService {
     });
 
     return Promise.race([
-      this.whisperService.transcribe(filePath),
+      this.whisperService.transcribe(filePath, context),
       timeoutPromise
     ]) as Promise<{ jsonPath: string; outDir: string }>;
   }

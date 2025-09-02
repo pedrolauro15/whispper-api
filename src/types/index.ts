@@ -39,3 +39,11 @@ export interface FileUpload {
   encoding?: string;
   toBuffer(): Promise<Buffer>;
 }
+
+export interface TranscriptionContext {
+  prompt?: string;
+  vocabulary?: string[];
+  topic?: string;
+  speaker?: string;
+  language?: string;
+}

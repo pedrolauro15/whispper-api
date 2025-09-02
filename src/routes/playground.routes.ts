@@ -182,6 +182,90 @@ function generatePlaygroundHTML(): string {
       border-color: var(--success);
       background: rgba(16, 185, 129, 0.05);
     }
+
+    /* Context Section Styles */
+    .context-section {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .context-title {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .context-description {
+      margin: 0 0 1.5rem 0;
+      color: var(--gray-600);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .context-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    @media (min-width: 768px) {
+      .context-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .context-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .context-field label {
+      font-weight: 500;
+      color: var(--gray-700);
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .context-field input,
+    .context-field textarea,
+    .context-field select {
+      padding: 0.75rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+      background: white;
+    }
+
+    .context-field input:focus,
+    .context-field textarea:focus,
+    .context-field select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .context-field textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .context-field small {
+      color: var(--gray-500);
+      font-size: 0.8rem;
+      line-height: 1.3;
+    }
     
     .upload-icon {
       font-size: 3rem;
@@ -634,6 +718,77 @@ function generatePlaygroundHTML(): string {
           <div class="file-details" id="file-details"></div>
         </div>
       </div>
+
+      <!-- Seção de Contexto -->
+      <div class="context-section" id="context-section">
+        <h3 class="context-title">🎯 Contexto da Transcrição (Opcional)</h3>
+        <p class="context-description">
+          Adicione informações para melhorar a precisão da transcrição do Whisper:
+        </p>
+        
+        <div class="context-grid">
+          <div class="context-field">
+            <label for="prompt">💬 Prompt Inicial</label>
+            <textarea 
+              id="prompt" 
+              name="prompt" 
+              placeholder="Ex: Esta é uma reunião sobre desenvolvimento de software..."
+              rows="2"
+            ></textarea>
+            <small>Orientação inicial para o modelo de transcrição</small>
+          </div>
+
+          <div class="context-field">
+            <label for="vocabulary">📝 Vocabulário Específico</label>
+            <input 
+              type="text" 
+              id="vocabulary" 
+              name="vocabulary" 
+              placeholder="Ex: API, JavaScript, React, Docker"
+            />
+            <small>Termos técnicos ou específicos separados por vírgula</small>
+          </div>
+
+          <div class="context-field">
+            <label for="topic">🏷️ Tópico/Assunto</label>
+            <input 
+              type="text" 
+              id="topic" 
+              name="topic" 
+              placeholder="Ex: Reunião de trabalho, Aula de programação"
+            />
+            <small>Contexto geral do conteúdo</small>
+          </div>
+
+          <div class="context-field">
+            <label for="speaker">👤 Locutor</label>
+            <input 
+              type="text" 
+              id="speaker" 
+              name="speaker" 
+              placeholder="Ex: Professor João, CEO da empresa"
+            />
+            <small>Informações sobre quem está falando</small>
+          </div>
+
+          <div class="context-field">
+            <label for="language">🌐 Idioma</label>
+            <select id="language" name="language">
+              <option value="">Detectar automaticamente</option>
+              <option value="pt">Português</option>
+              <option value="en">Inglês</option>
+              <option value="es">Espanhol</option>
+              <option value="fr">Francês</option>
+              <option value="de">Alemão</option>
+              <option value="it">Italiano</option>
+              <option value="ja">Japonês</option>
+              <option value="ko">Coreano</option>
+              <option value="zh">Chinês</option>
+            </select>
+            <small>Força um idioma específico (opcional)</small>
+          </div>
+        </div>
+      </div>
       
       <button class="btn primary" id="transcribe-btn">
         <div class="loader"></div>
@@ -924,6 +1079,19 @@ function generatePlaygroundHTML(): string {
       const formData = new FormData();
       formData.append('file', file);
       
+      // Adicionar campos de contexto se preenchidos
+      const prompt = document.getElementById('prompt').value.trim();
+      const vocabulary = document.getElementById('vocabulary').value.trim();
+      const topic = document.getElementById('topic').value.trim();
+      const speaker = document.getElementById('speaker').value.trim();
+      const language = document.getElementById('language').value.trim();
+      
+      if (prompt) formData.append('prompt', prompt);
+      if (vocabulary) formData.append('vocabulary', vocabulary);
+      if (topic) formData.append('topic', topic);
+      if (speaker) formData.append('speaker', speaker);
+      if (language) formData.append('language', language);
+      
       // UI loading state
       setLoadingState(true);
       showStatus('📤', 'Enviando arquivo...', 'info');
@@ -1146,13 +1314,18 @@ function generatePlaygroundHTML(): string {
       const formData = new FormData();
       formData.append('file', currentFile);
       
+      // Obter valores personalizados dos controles
+      const fontSize = document.getElementById('font-size-select').value;
+      const marginVertical = document.getElementById('margin-select').value;
+      const borderWidth = document.getElementById('border-width-select').value;
+      
       // UI loading state
       generateSubtitledVideo.disabled = true;
       generateSubtitledVideo.innerHTML = '⏳ Gerando vídeo...';
       showStatus('🎬', 'Processando vídeo com FFmpeg...', 'info');
       
       try {
-        const response = await fetch('/video-with-subtitles?hardcoded=true&fontSize=18&fontColor=%23ffffff&backgroundColor=%23000000&borderWidth=1&marginVertical=20', {
+        const response = await fetch('/video-with-subtitles?hardcoded=true&fontSize=' + fontSize + '&fontColor=%23ffffff&backgroundColor=%23000000&borderWidth=' + borderWidth + '&marginVertical=' + marginVertical, {
           method: 'POST',
           body: formData
         });

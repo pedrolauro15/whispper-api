@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TranscriptionService } from '../services/transcription.service.js';
-import type { ErrorResponse, FileUpload } from '../types/index.js';
+import type { ErrorResponse, FileUpload, TranscriptionContext } from '../types/index.js';
 
 export class TranscriptionController {
   private transcriptionService: TranscriptionService;
@@ -35,8 +35,11 @@ export class TranscriptionController {
         } as ErrorResponse);
       }
 
+      // Extrair contexto dos campos do formulário
+      const context = await this.extractContextFromRequest(req);
+
       // Processar transcrição
-      const result = await this.transcriptionService.transcribeFile(fileUpload);
+      const result = await this.transcriptionService.transcribeFile(fileUpload, context);
 
       req.log.info('TranscriptionController: Transcrição concluída');
       return reply.send(result);
@@ -77,6 +80,9 @@ export class TranscriptionController {
 
       req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
 
+      // Extrair contexto dos campos do formulário
+      const context = await this.extractContextFromRequest(req);
+
       // Obter parâmetros da query
       const query = req.query as any;
       const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
@@ -96,7 +102,8 @@ export class TranscriptionController {
       const result = await this.transcriptionService.transcribeAndAddSubtitlesToVideo(
         fileUpload,
         subtitleStyle,
-        hardcodedSubs
+        hardcodedSubs,
+        context
       );
 
       if (!result.success) {
@@ -138,6 +145,77 @@ export class TranscriptionController {
     if (!mimetype) return false;
 
     return mimetype.startsWith('audio/') || mimetype.startsWith('video/');
+  }
+
+  /**
+   * Extrai contexto de transcrição dos campos do formulário multipart
+   */
+  private async extractContextFromRequest(req: FastifyRequest): Promise<TranscriptionContext | undefined> {
+    try {
+      const context: TranscriptionContext = {};
+      let hasContext = false;
+
+      // Iterar sobre os campos do formulário multipart
+      const parts = (req as any).parts();
+      
+      for await (const part of parts) {
+        if (part.type === 'field') {
+          const fieldName = part.fieldname;
+          const fieldValue = part.value;
+
+          switch (fieldName) {
+            case 'prompt':
+              if (fieldValue && fieldValue.trim()) {
+                context.prompt = fieldValue.trim();
+                hasContext = true;
+              }
+              break;
+            
+            case 'vocabulary':
+              if (fieldValue && fieldValue.trim()) {
+                // Dividir por vírgulas e limpar espaços
+                const vocabularyItems = fieldValue.split(',').map((v: string) => v.trim()).filter((v: string) => v);
+                if (vocabularyItems.length > 0) {
+                  context.vocabulary = vocabularyItems;
+                  hasContext = true;
+                }
+              }
+              break;
+            
+            case 'topic':
+              if (fieldValue && fieldValue.trim()) {
+                context.topic = fieldValue.trim();
+                hasContext = true;
+              }
+              break;
+            
+            case 'speaker':
+              if (fieldValue && fieldValue.trim()) {
+                context.speaker = fieldValue.trim();
+                hasContext = true;
+              }
+              break;
+            
+            case 'language':
+              if (fieldValue && fieldValue.trim()) {
+                context.language = fieldValue.trim();
+                hasContext = true;
+              }
+              break;
+          }
+        }
+      }
+
+      if (hasContext) {
+        req.log.info(`TranscriptionController: Contexto extraído: ${JSON.stringify(context)}`);
+        return context;
+      }
+
+      return undefined;
+    } catch (error) {
+      req.log.warn(`TranscriptionController: Erro ao extrair contexto: ${String(error)}`);
+      return undefined;
+    }
   }
 
   /**

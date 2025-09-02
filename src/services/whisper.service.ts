@@ -4,7 +4,7 @@ import fsSync from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { config } from '../lib/config.js';
-import type { WhisperResult } from '../types/index.js';
+import type { TranscriptionContext, WhisperResult } from '../types/index.js';
 
 export class WhisperService {
   private readonly whisperBin: string;
@@ -22,12 +22,12 @@ export class WhisperService {
   /**
    * Processa um arquivo de áudio usando o Whisper CLI
    */
-  async transcribe(inputPath: string): Promise<WhisperResult> {
+  async transcribe(inputPath: string, context?: TranscriptionContext): Promise<WhisperResult> {
     return new Promise<WhisperResult>((resolve, reject) => {
       try {
         this.validateInputFile(inputPath);
         
-        const { outDir, base, args } = this.prepareWhisperCommand(inputPath);
+        const { outDir, base, args } = this.prepareWhisperCommand(inputPath, context);
         
         this.executeWhisper(args, outDir, base, resolve, reject);
         
@@ -59,7 +59,7 @@ export class WhisperService {
   /**
    * Prepara o comando e diretórios para execução do Whisper
    */
-  private prepareWhisperCommand(inputPath: string) {
+  private prepareWhisperCommand(inputPath: string, context?: TranscriptionContext) {
     const tmpDirPath = tmpdir();
     
     // Garantir que o diretório temporário existe
@@ -77,8 +77,56 @@ export class WhisperService {
       '--model', this.model
     ];
     
-    if (this.language) {
-      args.push('--language', this.language);
+    // Adicionar linguagem (prioridade: contexto > configuração padrão)
+    const language = context?.language || this.language;
+    if (language) {
+      args.push('--language', language);
+    }
+
+    // Adicionar prompt/contexto se fornecido
+    if (context?.prompt) {
+      args.push('--initial_prompt', context.prompt);
+      console.log(`WhisperService: Usando prompt: "${context.prompt}"`);
+    }
+
+    // Adicionar vocabulário personalizado como prompt adicional
+    if (context?.vocabulary && context.vocabulary.length > 0) {
+      const vocabularyPrompt = `Vocabulário importante: ${context.vocabulary.join(', ')}.`;
+      const finalPrompt = context.prompt 
+        ? `${context.prompt} ${vocabularyPrompt}`
+        : vocabularyPrompt;
+      
+      // Substituir ou adicionar o prompt com vocabulário
+      const promptIndex = args.indexOf('--initial_prompt');
+      if (promptIndex !== -1) {
+        args[promptIndex + 1] = finalPrompt;
+      } else {
+        args.push('--initial_prompt', finalPrompt);
+      }
+      
+      console.log(`WhisperService: Vocabulário adicionado: ${context.vocabulary.join(', ')}`);
+    }
+
+    // Adicionar informações sobre tópico e locutor ao prompt
+    if (context?.topic || context?.speaker) {
+      let contextPrompt = '';
+      
+      if (context.topic) {
+        contextPrompt += `Tópico: ${context.topic}. `;
+      }
+      
+      if (context.speaker) {
+        contextPrompt += `Locutor: ${context.speaker}. `;
+      }
+      
+      const promptIndex = args.indexOf('--initial_prompt');
+      if (promptIndex !== -1) {
+        args[promptIndex + 1] = `${contextPrompt}${args[promptIndex + 1]}`;
+      } else {
+        args.push('--initial_prompt', contextPrompt);
+      }
+      
+      console.log(`WhisperService: Contexto adicional: ${contextPrompt}`);
     }
 
     // Criar diretório de saída

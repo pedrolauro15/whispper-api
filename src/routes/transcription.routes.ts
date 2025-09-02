@@ -4,7 +4,7 @@ import { TranscriptionController } from './transcription.controller.js';
 // Schema OpenAPI para o endpoint de transcrição
 export const transcribeSchema = {
   summary: 'Transcreve um arquivo de áudio ou vídeo usando Whisper',
-  description: 'Recebe um arquivo de áudio/vídeo e retorna a transcrição em texto usando o modelo Whisper',
+  description: 'Recebe um arquivo de áudio/vídeo e retorna a transcrição em texto usando o modelo Whisper. Suporta contexto adicional para melhorar a precisão.',
   tags: ['transcription'],
   consumes: ['multipart/form-data'],
   requestBody: {
@@ -18,6 +18,26 @@ export const transcribeSchema = {
               type: 'string',
               format: 'binary',
               description: 'Arquivo de áudio ou vídeo para transcrição'
+            },
+            prompt: {
+              type: 'string',
+              description: 'Prompt inicial para orientar a transcrição (opcional)'
+            },
+            vocabulary: {
+              type: 'string',
+              description: 'Vocabulário específico separado por vírgulas (ex: "API, JavaScript, React") (opcional)'
+            },
+            topic: {
+              type: 'string',
+              description: 'Tópico ou assunto do áudio (ex: "reunião de trabalho", "aula de programação") (opcional)'
+            },
+            speaker: {
+              type: 'string',
+              description: 'Nome ou informações sobre o locutor (opcional)'
+            },
+            language: {
+              type: 'string',
+              description: 'Código da linguagem (ex: "pt", "en") - sobrescreve a configuração padrão (opcional)'
             }
           },
           required: ['file']
@@ -77,7 +97,7 @@ export const transcribeSchema = {
 // Schema OpenAPI para o endpoint de vídeo com legendas
 export const videoWithSubtitlesSchema = {
   summary: 'Gera vídeo com legendas usando Whisper + FFmpeg',
-  description: 'Recebe um arquivo de vídeo, transcreve o áudio e retorna o vídeo com legendas incorporadas',
+  description: 'Recebe um arquivo de vídeo, transcreve o áudio e retorna o vídeo com legendas incorporadas. Suporta contexto adicional para melhorar a transcrição.',
   tags: ['video'],
   consumes: ['multipart/form-data'],
   requestBody: {
@@ -91,6 +111,26 @@ export const videoWithSubtitlesSchema = {
               type: 'string',
               format: 'binary',
               description: 'Arquivo de vídeo para adicionar legendas'
+            },
+            prompt: {
+              type: 'string',
+              description: 'Prompt inicial para orientar a transcrição (opcional)'
+            },
+            vocabulary: {
+              type: 'string',
+              description: 'Vocabulário específico separado por vírgulas (opcional)'
+            },
+            topic: {
+              type: 'string',
+              description: 'Tópico ou assunto do vídeo (opcional)'
+            },
+            speaker: {
+              type: 'string',
+              description: 'Nome ou informações sobre o locutor (opcional)'
+            },
+            language: {
+              type: 'string',
+              description: 'Código da linguagem (ex: "pt", "en") (opcional)'
             }
           },
           required: ['file']
