@@ -13,11 +13,9 @@ configDotenv();
 
 const app = Fastify({ logger: true });
 
-// ✅ multipart com body "real" para validação
+// ✅ multipart configuração mais simples
 await app.register(multipart, {
-  attachFieldsToBody: 'keyValues', // agora req.body existe e tem { file: { data: Buffer, filename, mimetype, ... } }
-  limits: { files: 1, fileSize: 50 * 1024 * 1024 },
-  throwFileSizeLimit: false
+  limits: { files: 1, fileSize: 50 * 1024 * 1024 }
 }); // Doc: attachFieldsToBody 'keyValues'. :contentReference[oaicite:2]{index=2}
 
 await app.register(swagger, {
@@ -91,50 +89,67 @@ const transcribeSchema = {
 
 app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, reply) => {
   try {
-    const b = req.body as any;
-    
     req.log.info('Recebido request de transcrição');
-    req.log.info('Body keys:', Object.keys(b || {}));
     
-    if (!b?.file) {
-      req.log.error('Campo file ausente no body');
-      return reply.code(400).send({ error: 'campo "file" ausente' });
+    // Usar o método padrão do Fastify multipart
+    const data = await req.file();
+    
+    if (!data) {
+      req.log.error('Nenhum arquivo recebido');
+      return reply.code(400).send({ error: 'nenhum arquivo enviado' });
     }
     
-    req.log.info('File type:', typeof b.file);
-    req.log.info('File is Buffer:', Buffer.isBuffer(b.file));
+    req.log.info('Arquivo recebido:', {
+      filename: data.filename,
+      mimetype: data.mimetype,
+      encoding: data.encoding
+    });
     
-    // Se file é um Buffer diretamente
-    let fileData: Buffer;
-    let filename = 'audio';
+    // Ler o arquivo em buffer
+    const buffer = await data.toBuffer();
     
-    if (Buffer.isBuffer(b.file)) {
-      fileData = b.file;
-    } else if (b.file.data && Buffer.isBuffer(b.file.data)) {
-      fileData = b.file.data;
-      filename = b.file.filename || 'audio';
-    } else {
-      req.log.error('File não é um Buffer válido');
-      return reply.code(400).send({ error: 'arquivo inválido ou vazio' });
+    if (!buffer || buffer.length === 0) {
+      req.log.error('Buffer do arquivo está vazio');
+      return reply.code(400).send({ error: 'arquivo vazio' });
     }
-
+    
+    req.log.info(`Buffer recebido com ${buffer.length} bytes`);
+    
+    const filename = data.filename || 'audio.wav';
     const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
-
+    
     req.log.info(`Salvando arquivo temporário: ${tmpPath}`);
     
     // Salvar o Buffer no arquivo temporário
-    await fs.writeFile(tmpPath, fileData);
+    await fs.writeFile(tmpPath, buffer);
+    
+    // Verificar se o arquivo foi criado
+    try {
+      const stats = await fs.stat(tmpPath);
+      req.log.info(`Arquivo criado com sucesso. Tamanho: ${stats.size} bytes`);
+    } catch (e) {
+      req.log.error('Erro ao verificar arquivo criado:', e);
+      return reply.code(500).send({ error: 'erro ao salvar arquivo temporário' });
+    }
 
     try {
+      req.log.info('Iniciando processamento do Whisper...');
       const { jsonPath } = await runWhisperCLI(tmpPath);
+      req.log.info(`Whisper processado. JSON em: ${jsonPath}`);
+      
       const raw = await fs.readFile(jsonPath, 'utf8');
       const data = JSON.parse(raw);
+      
+      req.log.info('Transcrição concluída com sucesso');
       return reply.send({ text: (data.text || '').trim(), segments: data.segments || [] });
     } catch (e: any) {
       req.log.error('Erro na transcrição:', e);
       return reply.code(500).send({ error: 'falha na transcrição', detail: e?.message });
     } finally {
-      fs.unlink(tmpPath).catch(() => {});
+      // Cleanup do arquivo temporário
+      fs.unlink(tmpPath).catch((e) => {
+        req.log.warn('Erro ao deletar arquivo temporário:', e);
+      });
     }
   } catch (e: any) {
     req.log.error('Erro geral no endpoint:', e);
