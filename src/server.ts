@@ -90,7 +90,7 @@ const transcribeSchema = {
 
 app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, reply) => {
   const b = req.body as any;
-  console.log(req.body.file);
+  console.log(typeof req.body.file);
   
   if (!b?.file) return reply.code(400).send({ error: 'campo "file" ausente' });
   if (!b.file?.data) return reply.code(400).send({ error: 'arquivo inválido' });
