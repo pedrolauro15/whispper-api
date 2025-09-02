@@ -1,4 +1,4 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TranscriptionService } from '../services/transcription.service.js';
 import type { ErrorResponse, FileUpload } from '../types/index.js';
 

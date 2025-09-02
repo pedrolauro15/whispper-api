@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import { config } from '../lib/config.js';
 import { FileService } from '../services/file.service.js';
 import { WhisperService } from '../services/whisper.service.js';
-import type { ErrorResponse, FileUpload, TranscriptionResponse } from '../types/index.js';
+import type { FileUpload, TranscriptionResponse } from '../types/index.js';
 
 export class TranscriptionService {
   private fileService: FileService;
