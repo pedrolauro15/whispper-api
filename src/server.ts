@@ -93,13 +93,13 @@ app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, re
   console.log(Object.keys(req.body.file));
   
   if (!b?.file) return reply.code(400).send({ error: 'campo "file" ausente' });
-  if (!b.file?.data) return reply.code(400).send({ error: 'arquivo inválido' });
+  if (!b.file) return reply.code(400).send({ error: 'arquivo inválido' });
 
   const filename = b.file.filename || 'audio';
   const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
 
   // b.file.data é Buffer
-  await fs.writeFile(tmpPath, b.file.data);
+  await fs.writeFile(tmpPath, b.file);
 
   try {
     const { jsonPath } = await runWhisperCLI(tmpPath);
