@@ -74,6 +74,103 @@ export const transcribeSchema = {
   }
 } as const;
 
+// Schema OpenAPI para o endpoint de vídeo com legendas
+export const videoWithSubtitlesSchema = {
+  summary: 'Gera vídeo com legendas usando Whisper + FFmpeg',
+  description: 'Recebe um arquivo de vídeo, transcreve o áudio e retorna o vídeo com legendas incorporadas',
+  tags: ['video'],
+  consumes: ['multipart/form-data'],
+  requestBody: {
+    required: true,
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
+          properties: {
+            file: {
+              type: 'string',
+              format: 'binary',
+              description: 'Arquivo de vídeo para adicionar legendas'
+            }
+          },
+          required: ['file']
+        }
+      }
+    }
+  },
+  querystring: {
+    type: 'object',
+    properties: {
+      hardcoded: {
+        type: 'string',
+        enum: ['true', 'false'],
+        default: 'true',
+        description: 'Se deve incorporar legendas no vídeo (true) ou adicionar como stream separado (false)'
+      },
+      fontName: {
+        type: 'string',
+        default: 'Arial',
+        description: 'Nome da fonte para as legendas'
+      },
+      fontSize: {
+        type: 'integer',
+        default: 24,
+        description: 'Tamanho da fonte para as legendas'
+      },
+      fontColor: {
+        type: 'string',
+        default: '#ffffff',
+        description: 'Cor da fonte em hexadecimal'
+      },
+      backgroundColor: {
+        type: 'string',
+        default: '#000000',
+        description: 'Cor de fundo das legendas em hexadecimal'
+      },
+      borderWidth: {
+        type: 'integer',
+        default: 2,
+        description: 'Largura da borda das legendas'
+      },
+      borderColor: {
+        type: 'string',
+        default: '#000000',
+        description: 'Cor da borda em hexadecimal'
+      }
+    }
+  },
+  response: {
+    200: {
+      description: 'Vídeo com legendas gerado com sucesso',
+      content: {
+        'video/mp4': {
+          schema: {
+            type: 'string',
+            format: 'binary',
+            description: 'Arquivo de vídeo com legendas'
+          }
+        }
+      }
+    },
+    400: {
+      description: 'Erro de validação',
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        detail: { type: 'string' }
+      }
+    },
+    500: {
+      description: 'Erro interno do servidor',
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        detail: { type: 'string' }
+      }
+    }
+  }
+} as const;
+
 /**
  * Registra as rotas de transcrição
  */
@@ -85,5 +182,12 @@ export async function transcriptionRoutes(fastify: FastifyInstance) {
     '/transcribe',
     { schema: transcribeSchema },
     controller.transcribe.bind(controller)
+  );
+
+  // Endpoint de vídeo com legendas
+  fastify.post(
+    '/video-with-subtitles',
+    { schema: videoWithSubtitlesSchema },
+    controller.transcribeVideoWithSubtitles.bind(controller)
   );
 }

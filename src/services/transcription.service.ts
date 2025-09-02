@@ -1,16 +1,22 @@
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { config } from '../lib/config.js';
 import { FileService } from '../services/file.service.js';
+import { VideoService, type SubtitleStyle } from '../services/video.service.js';
 import { WhisperService } from '../services/whisper.service.js';
-import type { FileUpload, TranscriptionResponse } from '../types/index.js';
+import type { FileUpload, TranscriptionResponse, VideoWithSubtitlesResponse } from '../types/index.js';
 
 export class TranscriptionService {
   private fileService: FileService;
   private whisperService: WhisperService;
+  private videoService: VideoService;
 
   constructor() {
     this.fileService = new FileService();
     this.whisperService = new WhisperService();
+    this.videoService = new VideoService();
   }
 
   /**
@@ -37,6 +43,110 @@ export class TranscriptionService {
         await this.fileService.cleanup(tmpPath);
       }
     }
+  }
+
+  /**
+   * Processa um vídeo e gera versão com legendas
+   */
+  async transcribeAndAddSubtitlesToVideo(
+    fileUpload: FileUpload,
+    subtitleStyle?: SubtitleStyle,
+    hardcodedSubs: boolean = true
+  ): Promise<VideoWithSubtitlesResponse> {
+    let tmpVideoPath: string | null = null;
+    let subtitlesPath: string | null = null;
+    let outputVideoPath: string | null = null;
+
+    try {
+      // 1. Processar arquivo de vídeo
+      tmpVideoPath = await this.fileService.processUploadedFile(fileUpload);
+
+      // 2. Transcrever áudio do vídeo
+      const whisperResult = await this.executeWithTimeout(tmpVideoPath);
+      const transcription = await this.processTranscriptionResult(whisperResult.jsonPath);
+
+      // 3. Gerar arquivo de legendas SRT
+      subtitlesPath = await this.generateSRTFile(transcription.segments);
+
+      // 4. Gerar vídeo com legendas usando FFmpeg
+      const videoResult = hardcodedSubs 
+        ? await this.videoService.addHardcodedSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath,
+            subtitleStyle
+          })
+        : await this.videoService.addSoftSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath
+          });
+
+      if (!videoResult.success) {
+        throw new Error(videoResult.message);
+      }
+
+      outputVideoPath = videoResult.outputPath;
+
+      // 5. Ler arquivo de vídeo como buffer
+      const videoBuffer = await fs.readFile(outputVideoPath);
+
+      return {
+        transcription,
+        videoBuffer,
+        videoPath: outputVideoPath,
+        subtitlesPath,
+        success: true,
+        message: videoResult.message
+      };
+
+    } catch (error) {
+      return {
+        transcription: null,
+        videoBuffer: null,
+        videoPath: null,
+        subtitlesPath: null,
+        success: false,
+        message: `Erro ao processar vídeo: ${error instanceof Error ? error.message : String(error)}`
+      };
+
+    } finally {
+      // Limpeza (mantém o vídeo final temporariamente para download)
+      if (tmpVideoPath) {
+        await this.fileService.cleanup(tmpVideoPath);
+      }
+      if (subtitlesPath) {
+        await this.videoService.cleanup(subtitlesPath);
+      }
+      // outputVideoPath será limpo depois do download
+    }
+  }
+
+  /**
+   * Gera um arquivo SRT a partir dos segmentos de transcrição
+   */
+  private async generateSRTFile(segments: any[]): Promise<string> {
+    const srtContent = segments.map((segment, index) => {
+      const startTime = this.formatTimeForSRT(segment.start);
+      const endTime = this.formatTimeForSRT(segment.end);
+      return `${index + 1}\n${startTime} --> ${endTime}\n${segment.text}\n`;
+    }).join('\n');
+
+    const srtPath = join(tmpdir(), `subtitles_${randomUUID()}.srt`);
+    await fs.writeFile(srtPath, srtContent, 'utf8');
+    
+    console.log(`TranscriptionService: Arquivo SRT gerado: ${srtPath}`);
+    return srtPath;
+  }
+
+  /**
+   * Formata tempo em segundos para formato SRT (HH:MM:SS,mmm)
+   */
+  private formatTimeForSRT(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 1000);
+    
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
   }
 
   /**

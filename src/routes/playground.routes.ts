@@ -1091,8 +1091,66 @@ function generatePlaygroundHTML(): string {
       }
     });
     
-    generateSubtitledVideo.addEventListener('click', () => {
-      alert('🚧 Funcionalidade em desenvolvimento!\\n\\nEm breve você poderá gerar vídeos com legendas automaticamente.\\n\\nPor enquanto, baixe o arquivo SRT ou VTT e use um editor de vídeo como:\\n• VLC Media Player\\n• HandBrake\\n• FFmpeg\\n• Adobe Premiere\\n• DaVinci Resolve');
+    generateSubtitledVideo.addEventListener('click', async () => {
+      if (!currentFile) {
+        alert('❌ Nenhum arquivo selecionado. Por favor, selecione um vídeo primeiro.');
+        return;
+      }
+      
+      if (!currentFile.type.startsWith('video/')) {
+        alert('❌ Por favor, selecione um arquivo de vídeo para gerar legendas.');
+        return;
+      }
+      
+      // Confirmar ação
+      const confirmed = confirm('🎬 Gerar vídeo com legendas?\\n\\nEste processo pode demorar alguns minutos dependendo do tamanho do vídeo.\\n\\nClique OK para continuar.');
+      if (!confirmed) return;
+      
+      const formData = new FormData();
+      formData.append('file', currentFile);
+      
+      // UI loading state
+      generateSubtitledVideo.disabled = true;
+      generateSubtitledVideo.innerHTML = '⏳ Gerando vídeo...';
+      showStatus('🎬', 'Processando vídeo com FFmpeg...', 'info');
+      
+      try {
+        const response = await fetch('/video-with-subtitles?hardcoded=true&fontSize=24&fontColor=%23ffffff&backgroundColor=%23000000', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Erro desconhecido');
+        }
+        
+        // Download do vídeo
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = currentFile.name.replace(/\\.[^/.]+$/, '') + '_with_subtitles.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showStatus('✅', 'Vídeo com legendas gerado e baixado com sucesso!', 'success');
+        
+      } catch (error) {
+        console.error('Erro ao gerar vídeo:', error);
+        showStatus('❌', 'Erro: ' + error.message, 'error');
+        
+        // Mostrar informações adicionais se for erro de FFmpeg
+        if (error.message.includes('FFmpeg')) {
+          alert('❌ Erro do FFmpeg\\n\\nPara usar esta funcionalidade, você precisa ter o FFmpeg instalado no sistema.\\n\\nInstale o FFmpeg:\\n• macOS: brew install ffmpeg\\n• Ubuntu: sudo apt install ffmpeg\\n• Windows: Baixe de https://ffmpeg.org\\n\\nApós instalar, reinicie o servidor.');
+        }
+        
+      } finally {
+        generateSubtitledVideo.disabled = false;
+        generateSubtitledVideo.innerHTML = '🎥 Gerar Vídeo com Legendas';
+      }
     });
     
     // Initialize

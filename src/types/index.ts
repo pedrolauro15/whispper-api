@@ -19,6 +19,15 @@ export interface TranscriptionResponse {
   }>;
 }
 
+export interface VideoWithSubtitlesResponse {
+  transcription: TranscriptionResponse | null;
+  videoBuffer: Buffer | null;
+  videoPath: string | null;
+  subtitlesPath: string | null;
+  success: boolean;
+  message: string;
+}
+
 export interface ErrorResponse {
   error: string;
   detail?: string;
