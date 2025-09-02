@@ -1100,17 +1100,11 @@ function generatePlaygroundHTML(): string {
       try {
         showStatus('🤖', 'Processando com Whisper AI...', 'info');
         
-        // Usar timeout estendido para transcrição (6 minutos)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutos
-        
         const response = await fetch('/transcribe', {
           method: 'POST',
-          body: formData,
-          signal: controller.signal
+          body: formData
         });
         
-        clearTimeout(timeoutId);
         const result = await response.json();
         
         if (!response.ok) {
@@ -1122,11 +1116,7 @@ function generatePlaygroundHTML(): string {
         showResults(result);
         
       } catch (error) {
-        if (error.name === 'AbortError') {
-          showStatus('⏰', 'Timeout: O processamento está demorando mais que o esperado. Tente com um arquivo menor.', 'error');
-        } else {
-          showStatus('❌', \`Erro: \${error.message}\`, 'error');
-        }
+        showStatus('❌', 'Erro: ' + error.message, 'error');
         console.error('Erro na transcrição:', error);
         
       } finally {
@@ -1335,17 +1325,10 @@ function generatePlaygroundHTML(): string {
       showStatus('🎬', 'Processando vídeo com FFmpeg...', 'info');
       
       try {
-        // Usar timeout estendido para processamento de vídeo (6 minutos)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutos
-        
         const response = await fetch('/video-with-subtitles?hardcoded=true&fontSize=' + fontSize + '&fontColor=%23ffffff&backgroundColor=%23000000&borderWidth=' + borderWidth + '&marginVertical=' + marginVertical, {
           method: 'POST',
-          body: formData,
-          signal: controller.signal
+          body: formData
         });
-        
-        clearTimeout(timeoutId);
         
         if (!response.ok) {
           const errorData = await response.json();
@@ -1367,16 +1350,11 @@ function generatePlaygroundHTML(): string {
         
       } catch (error) {
         console.error('Erro ao gerar vídeo:', error);
+        showStatus('❌', 'Erro: ' + error.message, 'error');
         
-        if (error.name === 'AbortError') {
-          showStatus('⏰', 'Timeout: O processamento do vídeo está demorando mais que o esperado. Tente com um arquivo menor.', 'error');
-        } else {
-          showStatus('❌', 'Erro: ' + error.message, 'error');
-          
-          // Mostrar informações adicionais se for erro de FFmpeg
-          if (error.message.includes('FFmpeg')) {
-            alert('❌ Erro do FFmpeg\\n\\nPara usar esta funcionalidade, você precisa ter o FFmpeg instalado no sistema.\\n\\nInstale o FFmpeg:\\n• macOS: brew install ffmpeg\\n• Ubuntu: sudo apt install ffmpeg\\n• Windows: Baixe de https://ffmpeg.org\\n\\nApós instalar, reinicie o servidor.');
-          }
+        // Mostrar informações adicionais se for erro de FFmpeg
+        if (error.message.includes('FFmpeg')) {
+          alert('❌ Erro do FFmpeg\\n\\nPara usar esta funcionalidade, você precisa ter o FFmpeg instalado no sistema.\\n\\nInstale o FFmpeg:\\n• macOS: brew install ffmpeg\\n• Ubuntu: sudo apt install ffmpeg\\n• Windows: Baixe de https://ffmpeg.org\\n\\nApós instalar, reinicie o servidor.');
         }
         
       } finally {
