@@ -30,30 +30,54 @@ await app.register(swaggerUI, {
 });
 
 // Configs
-const WHISPER_BIN = process.env.WHISPER_BIN || 'whisper-ctranslate2'; // mais rápido
+const WHISPER_BIN = process.env.WHISPER_BIN || 'whisper'; // mais rápido
 const FALLBACK_BIN = 'whisper';                                       // oficial
 const MODEL = process.env.WHISPER_MODEL || 'base';
 const LANGUAGE = process.env.WHISPER_LANG || ''; // 'pt' ou '' (auto)
 
 function runWhisperCLI(inputPath: string) {
   return new Promise<{ jsonPath: string; outDir: string }>((resolve, reject) => {
+    console.log(`runWhisperCLI: Verificando arquivo de entrada: ${inputPath}`);
+    
+    // Verificar se o arquivo existe antes de tentar processar
+    const fs = require('fs');
+    if (!fs.existsSync(inputPath)) {
+      return reject(new Error(`Arquivo de entrada não existe: ${inputPath}`));
+    }
+    
+    const stats = fs.statSync(inputPath);
+    console.log(`runWhisperCLI: Arquivo existe, tamanho: ${stats.size} bytes`);
+    
     const outDir = join(tmpdir(), `whisper-out-${randomUUID()}`);
     const base = basename(inputPath).replace(/\.[^/.]+$/, '');
     const args = [inputPath, '--output_format', 'json', '--output_dir', outDir, '--model', MODEL];
     if (LANGUAGE) args.push('--language', LANGUAGE);
 
+    console.log(`runWhisperCLI: Executando comando: ${WHISPER_BIN} ${args.join(' ')}`);
+    console.log(`runWhisperCLI: Diretório de saída: ${outDir}`);
+
     const p = spawn(WHISPER_BIN, args, { stdio: 'inherit' });
-    p.on('error', () => {
+    p.on('error', (err) => {
+      console.log(`runWhisperCLI: Erro com ${WHISPER_BIN}, tentando ${FALLBACK_BIN}:`, err.message);
       const p2 = spawn(FALLBACK_BIN, args, { stdio: 'inherit' });
-      p2.on('error', reject);
+      p2.on('error', (err2) => {
+        console.log(`runWhisperCLI: Erro com ${FALLBACK_BIN}:`, err2.message);
+        reject(err2);
+      });
       p2.on('close', (code) => {
+        console.log(`runWhisperCLI: ${FALLBACK_BIN} terminou com código: ${code}`);
         if (code !== 0) return reject(new Error(`whisper exited ${code}`));
-        resolve({ jsonPath: join(outDir, `${base}.json`), outDir });
+        const jsonPath = join(outDir, `${base}.json`);
+        console.log(`runWhisperCLI: JSON esperado em: ${jsonPath}`);
+        resolve({ jsonPath, outDir });
       });
     });
     p.on('close', (code) => {
+      console.log(`runWhisperCLI: ${WHISPER_BIN} terminou com código: ${code}`);
       if (code !== 0) return reject(new Error(`whisper exited ${code}`));
-      resolve({ jsonPath: join(outDir, `${base}.json`), outDir });
+      const jsonPath = join(outDir, `${base}.json`);
+      console.log(`runWhisperCLI: JSON esperado em: ${jsonPath}`);
+      resolve({ jsonPath, outDir });
     });
   });
 }
@@ -88,6 +112,8 @@ const transcribeSchema = {
 };
 
 app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, reply) => {
+  let tmpPath: string | null = null;
+  
   try {
     req.log.info('Recebido request de transcrição');
     
@@ -115,25 +141,59 @@ app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, re
     
     req.log.info(`Buffer recebido com ${buffer.length} bytes`);
     
-    const filename = data.filename || 'audio.wav';
-    const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
+    // Garantir extensão apropriada baseada no mimetype ou filename
+    let filename = data.filename || 'audio';
+    if (!filename.includes('.')) {
+      // Se não tem extensão, adicionar baseado no mimetype
+      if (data.mimetype?.includes('audio/')) {
+        if (data.mimetype.includes('mpeg') || data.mimetype.includes('mp3')) {
+          filename += '.mp3';
+        } else if (data.mimetype.includes('wav')) {
+          filename += '.wav';
+        } else if (data.mimetype.includes('ogg')) {
+          filename += '.ogg';
+        } else if (data.mimetype.includes('m4a')) {
+          filename += '.m4a';
+        } else {
+          filename += '.wav'; // fallback
+        }
+      } else {
+        filename += '.wav'; // fallback para outros tipos
+      }
+    }
+    
+    tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
     
     req.log.info(`Salvando arquivo temporário: ${tmpPath}`);
     
     // Salvar o Buffer no arquivo temporário
     await fs.writeFile(tmpPath, buffer);
     
-    // Verificar se o arquivo foi criado
+    // Verificar se o arquivo foi criado E existe
+    let stats;
     try {
-      const stats = await fs.stat(tmpPath);
+      stats = await fs.stat(tmpPath);
       req.log.info(`Arquivo criado com sucesso. Tamanho: ${stats.size} bytes`);
+      
+      if (stats.size === 0) {
+        throw new Error('Arquivo criado mas está vazio');
+      }
+      
+      // Verificar se o arquivo ainda existe antes de passar para o Whisper
+      await fs.access(tmpPath);
+      req.log.info('Arquivo confirmado existente e acessível');
+      
     } catch (e) {
       req.log.error('Erro ao verificar arquivo criado:', e);
-      return reply.code(500).send({ error: 'erro ao salvar arquivo temporário' });
+      return reply.code(500).send({ error: 'erro ao salvar arquivo temporário', detail: String(e) });
     }
 
     try {
-      req.log.info('Iniciando processamento do Whisper...');
+      req.log.info(`Iniciando processamento do Whisper com arquivo: ${tmpPath}`);
+      
+      // Verificar novamente se o arquivo existe antes do processamento
+      await fs.access(tmpPath);
+      
       const { jsonPath } = await runWhisperCLI(tmpPath);
       req.log.info(`Whisper processado. JSON em: ${jsonPath}`);
       
@@ -144,16 +204,30 @@ app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, re
       return reply.send({ text: (data.text || '').trim(), segments: data.segments || [] });
     } catch (e: any) {
       req.log.error('Erro na transcrição:', e);
+      
+      // Verificar se o arquivo ainda existe após o erro
+      try {
+        await fs.access(tmpPath);
+        req.log.info('Arquivo ainda existe após erro do Whisper');
+      } catch {
+        req.log.error('Arquivo foi deletado ou não existe mais após erro do Whisper');
+      }
+      
       return reply.code(500).send({ error: 'falha na transcrição', detail: e?.message });
-    } finally {
-      // Cleanup do arquivo temporário
-      fs.unlink(tmpPath).catch((e) => {
-        req.log.warn('Erro ao deletar arquivo temporário:', e);
-      });
     }
   } catch (e: any) {
     req.log.error('Erro geral no endpoint:', e);
     return reply.code(500).send({ error: 'erro interno do servidor', detail: e?.message });
+  } finally {
+    // Cleanup do arquivo temporário apenas se foi criado
+    if (tmpPath) {
+      try {
+        await fs.unlink(tmpPath);
+        req.log.info(`Arquivo temporário deletado: ${tmpPath}`);
+      } catch (e) {
+        req.log.warn('Erro ao deletar arquivo temporário:', e);
+      }
+    }
   }
 });
 
