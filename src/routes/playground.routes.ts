@@ -719,7 +719,8 @@ function generatePlaygroundHTML(): string {
         </div>
       </div>
 
-      <!-- Seção de Contexto -->
+      <!-- Seção de Contexto - Temporariamente desabilitada para melhor performance -->
+      <!--
       <div class="context-section" id="context-section">
         <h3 class="context-title">🎯 Contexto da Transcrição (Opcional)</h3>
         <p class="context-description">
@@ -789,6 +790,7 @@ function generatePlaygroundHTML(): string {
           </div>
         </div>
       </div>
+      -->
       
       <button class="btn primary" id="transcribe-btn">
         <div class="loader"></div>
@@ -1079,7 +1081,8 @@ function generatePlaygroundHTML(): string {
       const formData = new FormData();
       formData.append('file', file);
       
-      // Adicionar campos de contexto se preenchidos
+      // Campos de contexto temporariamente desabilitados para melhor performance
+      /*
       const prompt = document.getElementById('prompt').value.trim();
       const vocabulary = document.getElementById('vocabulary').value.trim();
       const topic = document.getElementById('topic').value.trim();
@@ -1091,6 +1094,7 @@ function generatePlaygroundHTML(): string {
       if (topic) formData.append('topic', topic);
       if (speaker) formData.append('speaker', speaker);
       if (language) formData.append('language', language);
+      */
       
       // UI loading state
       setLoadingState(true);

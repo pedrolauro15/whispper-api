@@ -18,7 +18,7 @@ export const config = {
   maxFiles: 1,
   
   // Timeouts
-  whisperTimeout: 180000, // 180 segundos (3 minutos)
+  whisperTimeout: 120000, // 120 segundos (2 minutos)
 } as const;
 
 export type Config = typeof config;
