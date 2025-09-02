@@ -101,20 +101,29 @@ app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, re
       return reply.code(400).send({ error: 'campo "file" ausente' });
     }
     
-    req.log.info('File keys:', Object.keys(b.file || {}));
+    req.log.info('File type:', typeof b.file);
+    req.log.info('File is Buffer:', Buffer.isBuffer(b.file));
     
-    if (!b.file.data) {
-      req.log.error('File.data ausente ou vazio');
+    // Se file é um Buffer diretamente
+    let fileData: Buffer;
+    let filename = 'audio';
+    
+    if (Buffer.isBuffer(b.file)) {
+      fileData = b.file;
+    } else if (b.file.data && Buffer.isBuffer(b.file.data)) {
+      fileData = b.file.data;
+      filename = b.file.filename || 'audio';
+    } else {
+      req.log.error('File não é um Buffer válido');
       return reply.code(400).send({ error: 'arquivo inválido ou vazio' });
     }
 
-    const filename = b.file.filename || 'audio';
     const tmpPath = join(tmpdir(), `upload-${randomUUID()}-${filename}`);
 
     req.log.info(`Salvando arquivo temporário: ${tmpPath}`);
     
-    // b.file.data é Buffer
-    await fs.writeFile(tmpPath, b.file.data);
+    // Salvar o Buffer no arquivo temporário
+    await fs.writeFile(tmpPath, fileData);
 
     try {
       const { jsonPath } = await runWhisperCLI(tmpPath);
