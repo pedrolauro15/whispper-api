@@ -42,6 +42,7 @@ function runWhisperCLI(inputPath: string) {
     // Verificar se o arquivo existe antes de tentar processar
     const fs = require('fs');
     if (!fs.existsSync(inputPath)) {
+      console.log(`runWhisperCLI: ERRO - Arquivo não existe: ${inputPath}`);
       return reject(new Error(`Arquivo de entrada não existe: ${inputPath}`));
     }
     
@@ -49,6 +50,7 @@ function runWhisperCLI(inputPath: string) {
     console.log(`runWhisperCLI: Arquivo existe, tamanho: ${stats.size} bytes`);
 
     if(!fs.existsSync(tmpdir())) {
+      console.log(`runWhisperCLI: Criando diretório tmpdir: ${tmpdir()}`);
       fs.mkdirSync(tmpdir(), { recursive: true });
     }
     
@@ -60,27 +62,92 @@ function runWhisperCLI(inputPath: string) {
     console.log(`runWhisperCLI: Executando comando: ${WHISPER_BIN} ${args.join(' ')}`);
     console.log(`runWhisperCLI: Diretório de saída: ${outDir}`);
 
-    const p = spawn(WHISPER_BIN, args, { stdio: 'inherit' });
+    // Criar o diretório de saída se não existir
+    if (!fs.existsSync(outDir)) {
+      console.log(`runWhisperCLI: Criando diretório de saída: ${outDir}`);
+      fs.mkdirSync(outDir, { recursive: true });
+    }
+
+    const p = spawn(WHISPER_BIN, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    p.stdout?.on('data', (data) => {
+      stdout += data.toString();
+      console.log(`runWhisperCLI STDOUT: ${data.toString()}`);
+    });
+    
+    p.stderr?.on('data', (data) => {
+      stderr += data.toString();
+      console.log(`runWhisperCLI STDERR: ${data.toString()}`);
+    });
+
     p.on('error', (err) => {
       console.log(`runWhisperCLI: Erro com ${WHISPER_BIN}, tentando ${FALLBACK_BIN}:`, err.message);
-      const p2 = spawn(FALLBACK_BIN, args, { stdio: 'inherit' });
+      console.log(`runWhisperCLI: stdout até agora: ${stdout}`);
+      console.log(`runWhisperCLI: stderr até agora: ${stderr}`);
+      
+      const p2 = spawn(FALLBACK_BIN, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+      
+      let stdout2 = '';
+      let stderr2 = '';
+      
+      p2.stdout?.on('data', (data) => {
+        stdout2 += data.toString();
+        console.log(`runWhisperCLI (fallback) STDOUT: ${data.toString()}`);
+      });
+      
+      p2.stderr?.on('data', (data) => {
+        stderr2 += data.toString();
+        console.log(`runWhisperCLI (fallback) STDERR: ${data.toString()}`);
+      });
+      
       p2.on('error', (err2) => {
         console.log(`runWhisperCLI: Erro com ${FALLBACK_BIN}:`, err2.message);
-        reject(err2);
+        console.log(`runWhisperCLI: stdout2: ${stdout2}`);
+        console.log(`runWhisperCLI: stderr2: ${stderr2}`);
+        reject(new Error(`Ambos whisper binários falharam. ${WHISPER_BIN}: ${err.message}, ${FALLBACK_BIN}: ${err2.message}`));
       });
+      
       p2.on('close', (code) => {
         console.log(`runWhisperCLI: ${FALLBACK_BIN} terminou com código: ${code}`);
-        if (code !== 0) return reject(new Error(`whisper exited ${code}`));
+        console.log(`runWhisperCLI: stdout final: ${stdout2}`);
+        console.log(`runWhisperCLI: stderr final: ${stderr2}`);
+        
+        if (code !== 0) {
+          return reject(new Error(`whisper fallback exited ${code}. stderr: ${stderr2}`));
+        }
+        
         const jsonPath = join(outDir, `${base}.json`);
         console.log(`runWhisperCLI: JSON esperado em: ${jsonPath}`);
+        
+        // Verificar se o arquivo JSON foi criado
+        if (!fs.existsSync(jsonPath)) {
+          return reject(new Error(`Arquivo JSON não foi criado: ${jsonPath}`));
+        }
+        
         resolve({ jsonPath, outDir });
       });
     });
+    
     p.on('close', (code) => {
       console.log(`runWhisperCLI: ${WHISPER_BIN} terminou com código: ${code}`);
-      if (code !== 0) return reject(new Error(`whisper exited ${code}`));
+      console.log(`runWhisperCLI: stdout final: ${stdout}`);
+      console.log(`runWhisperCLI: stderr final: ${stderr}`);
+      
+      if (code !== 0) {
+        return reject(new Error(`whisper exited ${code}. stderr: ${stderr}`));
+      }
+      
       const jsonPath = join(outDir, `${base}.json`);
       console.log(`runWhisperCLI: JSON esperado em: ${jsonPath}`);
+      
+      // Verificar se o arquivo JSON foi criado
+      if (!fs.existsSync(jsonPath)) {
+        return reject(new Error(`Arquivo JSON não foi criado: ${jsonPath}`));
+      }
+      
       resolve({ jsonPath, outDir });
     });
   });
@@ -207,7 +274,12 @@ app.post('/transcribe', { schema: transcribeSchema as any }, async (req: any, re
       req.log.info('Transcrição concluída com sucesso');
       return reply.send({ text: (data.text || '').trim(), segments: data.segments || [] });
     } catch (e: any) {
-      req.log.error('Erro na transcrição:', e);
+      req.log.error('Erro na transcrição:', {
+        message: e?.message,
+        stack: e?.stack,
+        name: e?.name,
+        error: e
+      });
       
       // Verificar se o arquivo ainda existe após o erro
       try {
