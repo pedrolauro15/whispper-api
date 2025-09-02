@@ -241,7 +241,8 @@ export class VideoService {
    */
   private buildSubtitleStyle(style?: SubtitleStyle): string {
     if (!style) {
-      return ':force_style=\'FontName=Arial,FontSize=24,PrimaryColour=&Hffffff&,BackColour=&H80000000&,BorderStyle=1,BorderWidth=2\'';
+      // Estilo padrão otimizado: fonte menor, mais compacta
+      return ':force_style=\'FontName=Arial,FontSize=18,PrimaryColour=&Hffffff&,BackColour=&H80000000&,BorderStyle=1,BorderWidth=1,MarginV=20,Spacing=0\'';
     }
 
     const styleProps: string[] = [];

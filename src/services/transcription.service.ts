@@ -127,7 +127,11 @@ export class TranscriptionService {
     const srtContent = segments.map((segment, index) => {
       const startTime = this.formatTimeForSRT(segment.start);
       const endTime = this.formatTimeForSRT(segment.end);
-      return `${index + 1}\n${startTime} --> ${endTime}\n${segment.text}\n`;
+      
+      // Quebrar texto longo em múltiplas linhas para melhor legibilidade
+      const formattedText = this.formatSubtitleText(segment.text);
+      
+      return `${index + 1}\n${startTime} --> ${endTime}\n${formattedText}\n`;
     }).join('\n');
 
     const srtPath = join(tmpdir(), `subtitles_${randomUUID()}.srt`);
@@ -135,6 +139,58 @@ export class TranscriptionService {
     
     console.log(`TranscriptionService: Arquivo SRT gerado: ${srtPath}`);
     return srtPath;
+  }
+
+  /**
+   * Formata texto da legenda para melhor legibilidade
+   * - Quebra linhas longas
+   * - Limita a 2 linhas por segmento
+   * - Máximo de 40 caracteres por linha
+   */
+  private formatSubtitleText(text: string): string {
+    const maxCharsPerLine = 40;
+    const maxLines = 2;
+    
+    // Remover espaços extras
+    text = text.trim().replace(/\s+/g, ' ');
+    
+    // Se o texto é curto o suficiente, retornar como está
+    if (text.length <= maxCharsPerLine) {
+      return text;
+    }
+    
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      
+      if (testLine.length <= maxCharsPerLine) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          // Palavra muito longa, truncar se necessário
+          lines.push(word.substring(0, maxCharsPerLine));
+          currentLine = '';
+        }
+        
+        // Limitar a 2 linhas
+        if (lines.length >= maxLines) {
+          break;
+        }
+      }
+    }
+    
+    // Adicionar a última linha se houver
+    if (currentLine && lines.length < maxLines) {
+      lines.push(currentLine);
+    }
+    
+    return lines.join('\n');
   }
 
   /**

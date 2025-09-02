@@ -81,14 +81,15 @@ export class TranscriptionController {
       const query = req.query as any;
       const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
       
-      // Estilo das legendas (se fornecido)
+      // Estilo das legendas (otimizado para tamanho compacto)
       const subtitleStyle = {
         fontName: query.fontName || 'Arial',
-        fontSize: parseInt(query.fontSize) || 24,
+        fontSize: parseInt(query.fontSize) || 18, // Reduzido de 24 para 18
         fontColor: query.fontColor || '#ffffff',
         backgroundColor: query.backgroundColor || '#000000',
-        borderWidth: parseInt(query.borderWidth) || 2,
-        borderColor: query.borderColor || '#000000'
+        borderWidth: parseInt(query.borderWidth) || 1, // Reduzido de 2 para 1
+        borderColor: query.borderColor || '#000000',
+        marginVertical: parseInt(query.marginVertical) || 20 // Margem menor
       };
 
       // Processar vídeo com legendas

@@ -99,11 +99,12 @@ Gera um vídeo com legendas incorporadas usando FFmpeg.
 **Query Parameters:**
 - `hardcoded`: `true` (legendas fixas) ou `false` (legendas separadas)
 - `fontName`: Nome da fonte (padrão: "Arial")
-- `fontSize`: Tamanho da fonte (padrão: 24)
+- `fontSize`: Tamanho da fonte (padrão: 18 - otimizado para legendas compactas)
 - `fontColor`: Cor da fonte em hex (padrão: "#ffffff")
 - `backgroundColor`: Cor de fundo em hex (padrão: "#000000")
-- `borderWidth`: Largura da borda (padrão: 2)
+- `borderWidth`: Largura da borda (padrão: 1 - borda fina)
 - `borderColor`: Cor da borda em hex (padrão: "#000000")
+- `marginVertical`: Margem vertical em pixels (padrão: 20)
 
 **Resposta:**
 - Arquivo de vídeo binário (MP4) com legendas incorporadas

@@ -685,8 +685,45 @@ function generatePlaygroundHTML(): string {
         <div class="video-section" id="video-section">
           <h4 class="video-title">🎬 Opções de Vídeo</h4>
           <div class="subtitle-info">
-            <strong>💡 Dica:</strong> Para vídeos, você pode baixar as legendas e aplicá-las usando software como VLC, HandBrake ou editores de vídeo.
+            <strong>💡 Nova configuração otimizada:</strong> Legendas menores e mais compactas (fonte 18px, borda fina). Use os controles abaixo para personalizar.
           </div>
+          
+          <!-- Controles de personalização das legendas -->
+          <div style="background: white; border: 1px solid var(--gray-200); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <h5 style="margin: 0 0 1rem 0; font-weight: 600; color: var(--gray-800);">⚙️ Personalizar Legendas</h5>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+              <div>
+                <label style="font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; display: block;">Tamanho da Fonte</label>
+                <select id="font-size-select" style="width: 100%; padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: 4px;">
+                  <option value="14">Pequena (14px)</option>
+                  <option value="16">Pequena+ (16px)</option>
+                  <option value="18" selected>Padrão (18px)</option>
+                  <option value="20">Média (20px)</option>
+                  <option value="24">Grande (24px)</option>
+                  <option value="28">Muito Grande (28px)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; display: block;">Posição</label>
+                <select id="margin-select" style="width: 100%; padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: 4px;">
+                  <option value="10">Muito Baixo (10px)</option>
+                  <option value="20" selected>Baixo (20px)</option>
+                  <option value="30">Médio (30px)</option>
+                  <option value="50">Alto (50px)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; display: block;">Borda</label>
+                <select id="border-width-select" style="width: 100%; padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: 4px;">
+                  <option value="0">Sem Borda</option>
+                  <option value="1" selected>Fina (1px)</option>
+                  <option value="2">Normal (2px)</option>
+                  <option value="3">Grossa (3px)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
           <div class="download-grid">
             <button class="action-btn primary" id="generate-subtitled-video">
               🎥 Gerar Vídeo com Legendas
@@ -1115,7 +1152,7 @@ function generatePlaygroundHTML(): string {
       showStatus('🎬', 'Processando vídeo com FFmpeg...', 'info');
       
       try {
-        const response = await fetch('/video-with-subtitles?hardcoded=true&fontSize=24&fontColor=%23ffffff&backgroundColor=%23000000', {
+        const response = await fetch('/video-with-subtitles?hardcoded=true&fontSize=18&fontColor=%23ffffff&backgroundColor=%23000000&borderWidth=1&marginVertical=20', {
           method: 'POST',
           body: formData
         });

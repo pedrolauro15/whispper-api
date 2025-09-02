@@ -114,8 +114,8 @@ export const videoWithSubtitlesSchema = {
       },
       fontSize: {
         type: 'integer',
-        default: 24,
-        description: 'Tamanho da fonte para as legendas'
+        default: 18,
+        description: 'Tamanho da fonte para as legendas (padrão compacto: 18)'
       },
       fontColor: {
         type: 'string',
@@ -129,13 +129,18 @@ export const videoWithSubtitlesSchema = {
       },
       borderWidth: {
         type: 'integer',
-        default: 2,
-        description: 'Largura da borda das legendas'
+        default: 1,
+        description: 'Largura da borda das legendas (padrão fino: 1)'
       },
       borderColor: {
         type: 'string',
         default: '#000000',
         description: 'Cor da borda em hexadecimal'
+      },
+      marginVertical: {
+        type: 'integer',
+        default: 20,
+        description: 'Margem vertical das legendas em pixels'
       }
     }
   },
