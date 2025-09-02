@@ -5,7 +5,7 @@ import { configDotenv } from 'dotenv';
 import Fastify from 'fastify';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { promises as fs } from 'node:fs';
+import fsSync, { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
@@ -40,22 +40,21 @@ function runWhisperCLI(inputPath: string) {
     try {
       console.log(`runWhisperCLI: Verificando arquivo de entrada: ${inputPath}`);
       
-      // Verificar se o arquivo existe antes de tentar processar
-      const fs = require('fs');
-      if (!fs.existsSync(inputPath)) {
+      // Usar fsSync que já foi importado
+      if (!fsSync.existsSync(inputPath)) {
         console.log(`runWhisperCLI: ERRO - Arquivo não existe: ${inputPath}`);
         return reject(new Error(`Arquivo de entrada não existe: ${inputPath}`));
       }
       
-      const stats = fs.statSync(inputPath);
+      const stats = fsSync.statSync(inputPath);
       console.log(`runWhisperCLI: Arquivo existe, tamanho: ${stats.size} bytes`);
 
       const tmpDirPath = tmpdir();
       console.log(`runWhisperCLI: tmpdir path: ${tmpDirPath}`);
 
-      if(!fs.existsSync(tmpDirPath)) {
+      if(!fsSync.existsSync(tmpDirPath)) {
         console.log(`runWhisperCLI: Criando diretório tmpdir: ${tmpDirPath}`);
-        fs.mkdirSync(tmpDirPath, { recursive: true });
+        fsSync.mkdirSync(tmpDirPath, { recursive: true });
       }
       
       const outDir = join(tmpDirPath, `whisper-out-${randomUUID()}`);
@@ -68,10 +67,10 @@ function runWhisperCLI(inputPath: string) {
       console.log(`runWhisperCLI: Base filename: ${base}`);
 
       // Criar o diretório de saída se não existir
-      if (!fs.existsSync(outDir)) {
+      if (!fsSync.existsSync(outDir)) {
         console.log(`runWhisperCLI: Criando diretório de saída: ${outDir}`);
         try {
-          fs.mkdirSync(outDir, { recursive: true });
+          fsSync.mkdirSync(outDir, { recursive: true });
           console.log(`runWhisperCLI: Diretório de saída criado com sucesso`);
         } catch (dirError) {
           console.log(`runWhisperCLI: Erro ao criar diretório de saída:`, dirError);
@@ -138,7 +137,7 @@ function runWhisperCLI(inputPath: string) {
           console.log(`runWhisperCLI: JSON esperado em: ${jsonPath}`);
           
           // Verificar se o arquivo JSON foi criado
-          if (!fs.existsSync(jsonPath)) {
+          if (!fsSync.existsSync(jsonPath)) {
             return reject(new Error(`Arquivo JSON não foi criado: ${jsonPath}`));
           }
           
@@ -159,7 +158,7 @@ function runWhisperCLI(inputPath: string) {
         console.log(`runWhisperCLI: JSON esperado em: ${jsonPath}`);
         
         // Verificar se o arquivo JSON foi criado
-        if (!fs.existsSync(jsonPath)) {
+        if (!fsSync.existsSync(jsonPath)) {
           return reject(new Error(`Arquivo JSON não foi criado: ${jsonPath}`));
         }
         
