@@ -1047,6 +1047,7 @@ function generatePlaygroundHTML(): string {
               <label for="target-language">Traduzir para:</label>
               <select id="target-language">
                 <option value="">Selecione um idioma</option>
+                <option value="pt">🇧🇷 Português</option>
                 <option value="en">🇺🇸 Inglês</option>
                 <option value="es">🇪🇸 Espanhol</option>
                 <option value="fr">🇫🇷 Francês</option>
@@ -1057,6 +1058,15 @@ function generatePlaygroundHTML(): string {
                 <option value="ko">🇰🇷 Coreano</option>
                 <option value="zh">🇨🇳 Chinês</option>
                 <option value="ar">🇸🇦 Árabe</option>
+                <option value="nl">🇳🇱 Holandês</option>
+                <option value="pl">🇵🇱 Polonês</option>
+                <option value="sv">🇸🇪 Sueco</option>
+                <option value="no">🇳🇴 Norueguês</option>
+                <option value="da">🇩🇰 Dinamarquês</option>
+                <option value="fi">🇫🇮 Finlandês</option>
+                <option value="tr">🇹🇷 Turco</option>
+                <option value="he">🇮🇱 Hebraico</option>
+                <option value="hi">🇮🇳 Hindi</option>
               </select>
               <button id="translate-btn" class="action-btn primary">🚀 Traduzir</button>
             </div>
@@ -1600,63 +1610,26 @@ function generatePlaygroundHTML(): string {
     });
     
     // Translation functionality
-    const translateText = document.getElementById('translate-text');
-    const sourceLanguage = document.getElementById('source-language');
+    const translateBtn = document.getElementById('translate-btn');
     const targetLanguage = document.getElementById('target-language');
-    const translateTranscription = document.getElementById('translate-transcription');
-    const translationResults = document.getElementById('translation-results');
-    
-    // Traduzir texto
-    translateText.addEventListener('click', async () => {
-      const text = document.getElementById('translation-input').value;
-      if (!text.trim()) {
-        alert('Digite um texto para traduzir');
-        return;
-      }
-      
-      translateText.disabled = true;
-      translateText.innerHTML = '⏳ Traduzindo...';
-      
-      try {
-        const response = await fetch('/translate/text', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            text: text,
-            from: sourceLanguage.value === 'auto' ? undefined : sourceLanguage.value,
-            to: targetLanguage.value
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(result.error || 'Erro na tradução');
-        }
-        
-        // Mostrar resultado
-        translationResults.innerHTML = '<h4>Resultado da Tradução:</h4><div class="translation-result">' + result.translatedText + '</div>';
-        
-      } catch (error) {
-        console.error('Erro na tradução:', error);
-        alert('Erro na tradução: ' + error.message);
-      } finally {
-        translateText.disabled = false;
-        translateText.innerHTML = '🌐 Traduzir';
-      }
-    });
+    const translationOutput = document.getElementById('translation-output');
+    const translationText = document.getElementById('translation-text');
+    const translationSegments = document.getElementById('translation-segments');
     
     // Traduzir transcrição
-    translateTranscription.addEventListener('click', async () => {
+    translateBtn.addEventListener('click', async () => {
       if (!currentResult) {
         alert('Faça uma transcrição primeiro');
         return;
       }
       
-      translateTranscription.disabled = true;
-      translateTranscription.innerHTML = '⏳ Traduzindo transcrição...';
+      if (!targetLanguage.value) {
+        alert('Selecione um idioma de destino');
+        return;
+      }
+      
+      translateBtn.disabled = true;
+      translateBtn.innerHTML = '⏳ Traduzindo...';
       
       try {
         const response = await fetch('/translate/transcription', {
@@ -1666,7 +1639,6 @@ function generatePlaygroundHTML(): string {
           },
           body: JSON.stringify({
             transcription: currentResult,
-            from: sourceLanguage.value === 'auto' ? undefined : sourceLanguage.value,
             to: targetLanguage.value
           })
         });
@@ -1677,25 +1649,32 @@ function generatePlaygroundHTML(): string {
           throw new Error(result.error || 'Erro na tradução');
         }
         
-        // Mostrar resultado da tradução da transcrição
-        translationResults.innerHTML = '<h4>Transcrição Traduzida:</h4>' +
-          '<div class="transcription-text">' + result.text + '</div>' +
-          '<h5>Segmentos Traduzidos:</h5>' +
-          '<div class="segments">' +
-          result.segments.map(segment => 
-            '<div class="segment">' +
-            '<span class="time">[' + segment.start.toFixed(2) + 's - ' + segment.end.toFixed(2) + 's]</span> ' +
-            '<span class="text">' + segment.text + '</span>' +
-            '</div>'
-          ).join('') +
-          '</div>';
+        // Mostrar resultado da tradução
+        translationText.innerHTML = result.text;
+        
+        // Mostrar segmentos traduzidos
+        if (result.segments && result.segments.length > 0) {
+          translationSegments.innerHTML = result.segments.map(segment => \`
+            <div class="segment">
+              <div class="segment-header">
+                <span class="segment-time">\${formatTime(segment.start)} → \${formatTime(segment.end)}</span>
+              </div>
+              <div class="segment-text">\${segment.text}</div>
+            </div>
+          \`).join('');
+        } else {
+          translationSegments.innerHTML = '';
+        }
+        
+        // Mostrar seção de resultado
+        translationOutput.style.display = 'block';
         
       } catch (error) {
         console.error('Erro na tradução:', error);
         alert('Erro na tradução: ' + error.message);
       } finally {
-        translateTranscription.disabled = false;
-        translateTranscription.innerHTML = '🌍 Traduzir Transcrição';
+        translateBtn.disabled = false;
+        translateBtn.innerHTML = '🚀 Traduzir';
       }
     });
     
