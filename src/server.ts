@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 import { config } from './lib/config.js';
 import { playgroundRoutes } from './routes/playground.routes.js';
 import { transcriptionRoutes } from './routes/transcription.routes.js';
+import { translationRoutes } from './routes/translation.routes.js';
 
 /**
  * Cria e configura a instância do Fastify
@@ -58,6 +59,10 @@ async function registerPlugins(app: ReturnType<typeof Fastify>) {
         {
           name: 'transcription',
           description: 'Endpoints relacionados à transcrição de áudio'
+        },
+        {
+          name: 'translation',
+          description: 'Endpoints relacionados à tradução de texto'
         }
       ]
     }
@@ -81,6 +86,9 @@ async function registerPlugins(app: ReturnType<typeof Fastify>) {
 async function registerRoutes(app: ReturnType<typeof Fastify>) {
   // Rotas de transcrição
   await app.register(transcriptionRoutes);
+  
+  // Rotas de tradução
+  await app.register(translationRoutes);
   
   // Rotas do playground
   await app.register(playgroundRoutes);

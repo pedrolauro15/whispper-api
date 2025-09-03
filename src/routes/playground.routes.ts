@@ -266,6 +266,89 @@ function generatePlaygroundHTML(): string {
       font-size: 0.8rem;
       line-height: 1.3;
     }
+
+    /* Translation Styles */
+    .translation-controls {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .translation-controls h4 {
+      margin: 0 0 1rem 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .translation-options {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .translation-options label {
+      font-weight: 500;
+      color: var(--gray-700);
+      font-size: 0.9rem;
+    }
+
+    .translation-options select {
+      padding: 0.5rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      min-width: 200px;
+    }
+
+    .translation-result {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .translation-text {
+      background: var(--gray-50);
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+    }
+
+    .translation-segments {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .translation-segment {
+      padding: 0.75rem;
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      background: white;
+    }
+
+    .translation-segment-time {
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      margin-bottom: 0.5rem;
+    }
+
+    .translation-segment-original {
+      color: var(--gray-600);
+      font-style: italic;
+      margin-bottom: 0.5rem;
+    }
+
+    .translation-segment-translated {
+      color: var(--gray-800);
+      font-weight: 500;
+    }
     
     .upload-icon {
       font-size: 3rem;
@@ -664,6 +747,127 @@ function generatePlaygroundHTML(): string {
         align-items: center;
       }
     }
+    
+    /* Translation styles */
+    .translation-section {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .translation-controls {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+    
+    .language-selector {
+      display: flex;
+      flex-direction: column;
+      min-width: 150px;
+    }
+    
+    .language-selector label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    
+    .language-selector select {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .translation-input {
+      width: 100%;
+      min-height: 100px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      resize: vertical;
+      margin-bottom: 15px;
+    }
+    
+    .translation-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .translation-button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    .translation-button:hover:not(:disabled) {
+      background: #0056b3;
+    }
+    
+    .translation-button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    
+    #translation-results {
+      margin-top: 20px;
+      padding: 15px;
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      min-height: 50px;
+    }
+    
+    .translation-result {
+      padding: 15px;
+      background: #e7f3ff;
+      border-left: 4px solid #007bff;
+      font-size: 16px;
+      line-height: 1.5;
+      margin-top: 10px;
+    }
+    
+    .transcription-text {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    
+    .segments .segment {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 10px;
+      margin: 8px 0;
+    }
+    
+    .segments .time {
+      color: #6c757d;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .segments .text {
+      display: block;
+      margin-top: 5px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -824,6 +1028,7 @@ function generatePlaygroundHTML(): string {
         <div class="tabs">
           <button class="tab active" data-tab="text">📝 Texto Limpo</button>
           <button class="tab" data-tab="segments">⏱️ Segmentos</button>
+          <button class="tab" data-tab="translation">🌐 Tradução</button>
           <button class="tab" data-tab="json">📊 JSON Completo</button>
         </div>
         
@@ -833,6 +1038,33 @@ function generatePlaygroundHTML(): string {
         
         <div class="tab-content" id="tab-segments">
           <div class="segments-list" id="segments-output"></div>
+        </div>
+        
+        <div class="tab-content" id="tab-translation">
+          <div class="translation-controls">
+            <h4>🌐 Traduzir Transcrição</h4>
+            <div class="translation-options">
+              <label for="target-language">Traduzir para:</label>
+              <select id="target-language">
+                <option value="">Selecione um idioma</option>
+                <option value="en">🇺🇸 Inglês</option>
+                <option value="es">🇪🇸 Espanhol</option>
+                <option value="fr">🇫🇷 Francês</option>
+                <option value="de">🇩🇪 Alemão</option>
+                <option value="it">🇮🇹 Italiano</option>
+                <option value="ru">🇷🇺 Russo</option>
+                <option value="ja">🇯🇵 Japonês</option>
+                <option value="ko">🇰🇷 Coreano</option>
+                <option value="zh">🇨🇳 Chinês</option>
+                <option value="ar">🇸🇦 Árabe</option>
+              </select>
+              <button id="translate-btn" class="action-btn primary">🚀 Traduzir</button>
+            </div>
+          </div>
+          <div class="translation-result" id="translation-output" style="display: none;">
+            <div class="translation-text" id="translation-text"></div>
+            <div class="translation-segments" id="translation-segments"></div>
+          </div>
         </div>
         
         <div class="tab-content" id="tab-json">
@@ -1364,6 +1596,106 @@ function generatePlaygroundHTML(): string {
       } finally {
         generateSubtitledVideo.disabled = false;
         generateSubtitledVideo.innerHTML = '🎥 Gerar Vídeo com Legendas';
+      }
+    });
+    
+    // Translation functionality
+    const translateText = document.getElementById('translate-text');
+    const sourceLanguage = document.getElementById('source-language');
+    const targetLanguage = document.getElementById('target-language');
+    const translateTranscription = document.getElementById('translate-transcription');
+    const translationResults = document.getElementById('translation-results');
+    
+    // Traduzir texto
+    translateText.addEventListener('click', async () => {
+      const text = document.getElementById('translation-input').value;
+      if (!text.trim()) {
+        alert('Digite um texto para traduzir');
+        return;
+      }
+      
+      translateText.disabled = true;
+      translateText.innerHTML = '⏳ Traduzindo...';
+      
+      try {
+        const response = await fetch('/translate/text', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: text,
+            from: sourceLanguage.value === 'auto' ? undefined : sourceLanguage.value,
+            to: targetLanguage.value
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Erro na tradução');
+        }
+        
+        // Mostrar resultado
+        translationResults.innerHTML = '<h4>Resultado da Tradução:</h4><div class="translation-result">' + result.translatedText + '</div>';
+        
+      } catch (error) {
+        console.error('Erro na tradução:', error);
+        alert('Erro na tradução: ' + error.message);
+      } finally {
+        translateText.disabled = false;
+        translateText.innerHTML = '🌐 Traduzir';
+      }
+    });
+    
+    // Traduzir transcrição
+    translateTranscription.addEventListener('click', async () => {
+      if (!currentResult) {
+        alert('Faça uma transcrição primeiro');
+        return;
+      }
+      
+      translateTranscription.disabled = true;
+      translateTranscription.innerHTML = '⏳ Traduzindo transcrição...';
+      
+      try {
+        const response = await fetch('/translate/transcription', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            transcription: currentResult,
+            from: sourceLanguage.value === 'auto' ? undefined : sourceLanguage.value,
+            to: targetLanguage.value
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Erro na tradução');
+        }
+        
+        // Mostrar resultado da tradução da transcrição
+        translationResults.innerHTML = '<h4>Transcrição Traduzida:</h4>' +
+          '<div class="transcription-text">' + result.text + '</div>' +
+          '<h5>Segmentos Traduzidos:</h5>' +
+          '<div class="segments">' +
+          result.segments.map(segment => 
+            '<div class="segment">' +
+            '<span class="time">[' + segment.start.toFixed(2) + 's - ' + segment.end.toFixed(2) + 's]</span> ' +
+            '<span class="text">' + segment.text + '</span>' +
+            '</div>'
+          ).join('') +
+          '</div>';
+        
+      } catch (error) {
+        console.error('Erro na tradução:', error);
+        alert('Erro na tradução: ' + error.message);
+      } finally {
+        translateTranscription.disabled = false;
+        translateTranscription.innerHTML = '🌍 Traduzir Transcrição';
       }
     });
     

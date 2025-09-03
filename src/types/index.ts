@@ -47,3 +47,22 @@ export interface TranscriptionContext {
   speaker?: string;
   language?: string;
 }
+
+export interface TranslationOptions {
+  targetLanguage: string;
+  sourceLanguage?: string;
+}
+
+export interface TranslationResult {
+  originalText: string;
+  translatedText: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  segments?: Array<{
+    id?: number;
+    start?: number;
+    end?: number;
+    originalText?: string;
+    translatedText?: string;
+  }>;
+}
