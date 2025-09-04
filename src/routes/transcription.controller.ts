@@ -238,8 +238,26 @@ export class TranscriptionController {
     try {
       req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
 
-      // Obter arquivo do multipart
-      const fileUpload = await (req as any).file() as FileUpload;
+      let fileUpload: FileUpload | null = null;
+      let translatedSegments: any[] | null = null;
+
+      // Processar todos os campos multipart
+      const parts = (req as any).parts();
+      
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          fileUpload = part as FileUpload;
+        } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
+          try {
+            translatedSegments = JSON.parse(part.value);
+          } catch (error) {
+            req.log.error(`Erro ao fazer parse dos segmentos traduzidos: ${error}`);
+            return reply.code(400).send({
+              error: 'Segmentos traduzidos inválidos - JSON malformado'
+            } as ErrorResponse);
+          }
+        }
+      }
 
       if (!fileUpload) {
         return reply.code(400).send({
@@ -255,22 +273,19 @@ export class TranscriptionController {
         } as ErrorResponse);
       }
 
-      req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
-
-      // Obter parâmetros da query
-      const query = req.query as any;
-      const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
-      
-      // Obter segmentos traduzidos do body da requisição
-      const body = req.body as any;
-      const translatedSegments = body.translatedSegments;
-
       if (!translatedSegments || !Array.isArray(translatedSegments)) {
         return reply.code(400).send({
           error: 'Segmentos traduzidos são obrigatórios',
           detail: 'O campo translatedSegments deve ser um array de segmentos traduzidos'
         } as ErrorResponse);
       }
+
+      req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
+      req.log.info(`TranscriptionController: ${translatedSegments.length} segmentos traduzidos recebidos`);
+
+      // Obter parâmetros da query
+      const query = req.query as any;
+      const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
       
       // Estilo das legendas (otimizado para tamanho compacto)
       const subtitleStyle = {
