@@ -252,6 +252,89 @@ export class TranscriptionController {
         detail: error?.message
       } as ErrorResponse);
     }
+  } "${translatedSegments[0].text}"`);
+          }
+        } catch (parseError) {
+          req.log.error(`Erro ao fazer parse dos segmentos traduzidos da query: ${parseError}`);
+          req.log.error(`Dados brutos: ${query.translatedSegments}`);
+        }
+      } else {
+        req.log.warn('TranscriptionController: Campo translatedSegments não encontrado na query');
+        req.log.info(`TranscriptionController: Campos disponíveis na query: ${Object.keys(query).join(', ')}`);
+        
+        // Tentar obter dos headers como fallback
+        const bodySegments = req.headers['x-translated-segments'];
+        if (bodySegments) {
+          try {
+            req.log.info('TranscriptionController: Tentando obter segmentos dos headers');
+            translatedSegments = JSON.parse(decodeURIComponent(Array.isArray(bodySegments) ? bodySegments[0] : bodySegments));
+            req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos obtidos dos headers`);
+          } catch (headerError) {
+            req.log.error(`Erro ao fazer parse dos segmentos dos headers: ${headerError}`);
+          }
+        }
+      }
+
+      if (!translatedSegments || !Array.isArray(translatedSegments) || translatedSegments.length === 0) {
+        return reply.code(400).send({
+          error: 'Segmentos traduzidos são obrigatórios',
+          detail: 'Envie os segmentos traduzidos via query parameter "translatedSegments" (JSON URL-encoded)'
+        } as ErrorResponse);
+      }
+
+      const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
+      
+      // Estilo das legendas
+      const subtitleStyle = {
+        fontName: query.fontName || 'Arial',
+        fontSize: parseInt(query.fontSize) || 18,
+        fontColor: query.fontColor || '#ffffff',
+        backgroundColor: query.backgroundColor || '#000000',
+        borderWidth: parseInt(query.borderWidth) || 1,
+        borderColor: query.borderColor || '#000000',
+        marginVertical: parseInt(query.marginVertical) || 20
+      };
+
+      req.log.info('TranscriptionController: Iniciando processamento do vídeo com segmentos traduzidos');
+
+      // Usar o método que gera vídeo com segmentos customizados
+      const result = await this.transcriptionService.generateVideoWithCustomSegments(
+        fileUpload,
+        { 
+          text: translatedSegments.map(s => s.text).join(' '), 
+          segments: translatedSegments 
+        },
+        subtitleStyle,
+        hardcodedSubs
+      );
+
+      if (!result.success) {
+        return reply.code(500).send({
+          error: 'Falha ao gerar vídeo com legendas traduzidas',
+          detail: result.message
+        } as ErrorResponse);
+      }
+
+      req.log.info('TranscriptionController: Vídeo com legendas traduzidas gerado com sucesso');
+
+      // Headers para download
+      const fileName = fileUpload.filename 
+        ? fileUpload.filename.replace(/\.[^/.]+$/, '_with_translated_subtitles.mp4')
+        : 'video_with_translated_subtitles.mp4';
+
+      reply.header('Content-Type', 'video/mp4');
+      reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
+      
+      return reply.send(result.videoBuffer);
+
+    } catch (error: any) {
+      req.log.error(`TranscriptionController: Erro ao gerar vídeo com legendas traduzidas - ${error?.message}`);
+
+      return reply.code(500).send({
+        error: 'Falha ao gerar vídeo com legendas traduzidas',
+        detail: error?.message
+      } as ErrorResponse);
+    }
   }
 
   /**
