@@ -238,8 +238,28 @@ export class TranscriptionController {
     try {
       req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
 
-      // Usar exatamente a mesma lógica do método que funciona
-      const fileUpload = await (req as any).file() as FileUpload;
+      let fileUpload: FileUpload | null = null;
+      let translatedSegments: any[] | null = null;
+
+      // Processar multipart para obter arquivo e segmentos traduzidos
+      const parts = (req as any).parts();
+      
+      for await (const part of parts) {
+        if (part.type === 'file' && !fileUpload) {
+          fileUpload = part as FileUpload;
+        } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
+          try {
+            translatedSegments = JSON.parse(part.value);
+          } catch (error) {
+            req.log.error(`Erro ao fazer parse dos segmentos traduzidos: ${error}`);
+          }
+        }
+        
+        // Sair do loop se já temos ambos
+        if (fileUpload && translatedSegments) {
+          break;
+        }
+      }
 
       if (!fileUpload) {
         return reply.code(400).send({
@@ -255,11 +275,15 @@ export class TranscriptionController {
         } as ErrorResponse);
       }
 
-      req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
+      if (!translatedSegments || !Array.isArray(translatedSegments) || translatedSegments.length === 0) {
+        return reply.code(400).send({
+          error: 'Segmentos traduzidos são obrigatórios',
+          detail: 'O campo translatedSegments deve ser um array de segmentos traduzidos'
+        } as ErrorResponse);
+      }
 
-      // Extrair segmentos traduzidos dos campos adicionais (será implementado depois)
-      // Por enquanto, vamos processar como um vídeo normal para testar
-      const context = undefined;
+      req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
+      req.log.info(`TranscriptionController: ${translatedSegments.length} segmentos traduzidos recebidos`);
 
       // Obter parâmetros da query
       const query = req.query as any;
@@ -268,20 +292,23 @@ export class TranscriptionController {
       // Estilo das legendas (otimizado para tamanho compacto)
       const subtitleStyle = {
         fontName: query.fontName || 'Arial',
-        fontSize: parseInt(query.fontSize) || 18,
+        fontSize: parseInt(query.fontSize) || 18, // Reduzido de 24 para 18
         fontColor: query.fontColor || '#ffffff',
         backgroundColor: query.backgroundColor || '#000000',
-        borderWidth: parseInt(query.borderWidth) || 1,
+        borderWidth: parseInt(query.borderWidth) || 1, // Reduzido de 2 para 1
         borderColor: query.borderColor || '#000000',
-        marginVertical: parseInt(query.marginVertical) || 20
+        marginVertical: parseInt(query.marginVertical) || 20 // Margem menor
       };
 
-      // Usar o método existente que já funciona perfeitamente
-      const result = await this.transcriptionService.transcribeAndAddSubtitlesToVideo(
+      // Usar o método existente, mas passando os segmentos traduzidos
+      const result = await this.transcriptionService.generateVideoFromExistingTranscription(
         fileUpload,
+        { 
+          text: translatedSegments.map(s => s.text).join(' '), 
+          segments: translatedSegments 
+        },
         subtitleStyle,
-        hardcodedSubs,
-        context
+        hardcodedSubs
       );
 
       if (!result.success) {
