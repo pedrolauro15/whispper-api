@@ -241,11 +241,11 @@ export class TranscriptionController {
       let fileUpload: FileUpload | null = null;
       let translatedSegments: any[] | null = null;
 
-      // Processar todos os campos multipart
+      // Processar campos multipart de forma eficiente
       const parts = (req as any).parts();
       
       for await (const part of parts) {
-        if (part.type === 'file') {
+        if (part.type === 'file' && !fileUpload) {
           fileUpload = part as FileUpload;
         } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
           try {
@@ -256,6 +256,11 @@ export class TranscriptionController {
               error: 'Segmentos traduzidos inválidos - JSON malformado'
             } as ErrorResponse);
           }
+        }
+        
+        // Otimização: sair do loop se já temos ambos os dados
+        if (fileUpload && translatedSegments) {
+          break;
         }
       }
 
