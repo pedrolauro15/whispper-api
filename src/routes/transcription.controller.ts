@@ -306,13 +306,16 @@ export class TranscriptionController {
         marginVertical: parseInt(query.marginVertical) || 20 // Margem menor
       };
 
-      // Usar o método existente, mas passando os segmentos traduzidos
-      const result = await this.transcriptionService.generateVideoFromExistingTranscription(
+      // Usar o método existente, mas passando os segmentos traduzidos como transcrição "fake"
+      const fakeTranscription = {
+        text: translatedSegments.map(s => s.text).join(' '), 
+        segments: translatedSegments
+      };
+
+      // Processar vídeo diretamente usando a mesma lógica do método que funciona
+      const result = await this.transcriptionService.generateVideoWithCustomSegments(
         fileUpload,
-        { 
-          text: translatedSegments.map(s => s.text).join(' '), 
-          segments: translatedSegments 
-        },
+        fakeTranscription,
         subtitleStyle,
         hardcodedSubs
       );

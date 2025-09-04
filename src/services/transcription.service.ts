@@ -126,6 +126,80 @@ export class TranscriptionService {
   }
 
   /**
+   * Gera vídeo usando segmentos customizados (para legendas traduzidas)
+   */
+  async generateVideoWithCustomSegments(
+    fileUpload: FileUpload,
+    transcription: any,
+    subtitleStyle?: SubtitleStyle,
+    hardcodedSubs: boolean = true
+  ): Promise<VideoWithSubtitlesResponse> {
+    let tmpVideoPath: string | null = null;
+    let subtitlesPath: string | null = null;
+    let outputVideoPath: string | null = null;
+
+    try {
+      // 1. Processar arquivo de vídeo
+      tmpVideoPath = await this.fileService.processUploadedFile(fileUpload);
+
+      // 2. Gerar arquivo de legendas SRT diretamente com os segmentos customizados
+      console.log(`🎯 Usando ${transcription.segments.length} segmentos customizados`);
+      console.log(`🎯 Primeiro segmento: "${transcription.segments[0]?.text}"`);
+      subtitlesPath = await this.generateSRTFile(transcription.segments);
+
+      // 3. Gerar vídeo com legendas usando FFmpeg
+      const videoResult = hardcodedSubs 
+        ? await this.videoService.addHardcodedSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath,
+            subtitleStyle
+          })
+        : await this.videoService.addSoftSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath
+          });
+
+      if (!videoResult.success) {
+        throw new Error(videoResult.message);
+      }
+
+      outputVideoPath = videoResult.outputPath;
+
+      // 4. Ler arquivo de vídeo como buffer
+      const videoBuffer = await fs.readFile(outputVideoPath);
+
+      return {
+        transcription,
+        videoBuffer,
+        videoPath: outputVideoPath,
+        subtitlesPath,
+        success: true,
+        message: 'Vídeo com legendas customizadas gerado com sucesso'
+      };
+
+    } catch (error) {
+      return {
+        transcription: null,
+        videoBuffer: null,
+        videoPath: null,
+        subtitlesPath: null,
+        success: false,
+        message: `Erro ao processar vídeo com segmentos customizados: ${error instanceof Error ? error.message : String(error)}`
+      };
+
+    } finally {
+      // Limpeza (mantém o vídeo final temporariamente para download)
+      if (tmpVideoPath) {
+        await this.fileService.cleanup(tmpVideoPath);
+      }
+      if (subtitlesPath) {
+        await this.videoService.cleanup(subtitlesPath);
+      }
+      // outputVideoPath será limpo depois do download
+    }
+  }
+
+  /**
    * Gera vídeo com legendas usando uma transcrição existente (otimizado para legendas traduzidas)
    */
   async generateVideoFromExistingTranscription(
