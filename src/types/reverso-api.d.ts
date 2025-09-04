@@ -1,5 +1,5 @@
 declare module 'reverso-api' {
-  interface ReversoTranslationResponse {
+  export interface ReversoTranslationResponse {
     text: string;
     source: string;
     target: string;
