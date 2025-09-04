@@ -14,7 +14,7 @@ export const config = {
   language: process.env.WHISPER_LANG || '', // 'pt' ou '' (auto)
   
   // Upload limits
-  maxFileSize: Number(process.env.MAX_FILE_SIZE) || 100 * 1024 * 1024, // 100MB padrão
+  maxFileSize: Number(process.env.MAX_FILE_SIZE) || 200 * 1024 * 1024, // 200MB padrão
   maxFiles: 1,
   
   // Timeouts
