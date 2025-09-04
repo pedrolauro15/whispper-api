@@ -147,6 +147,8 @@ export class TranscriptionService {
 
       // 2. Gerar arquivo de legendas SRT (pula a transcrição)
       console.log('📝 TranscriptionService: Gerando arquivo SRT...');
+      console.log(`📝 TranscriptionService: Recebidos ${transcription.segments.length} segmentos`);
+      console.log(`📝 TranscriptionService: Primeiro segmento: "${transcription.segments[0]?.text}"`);
       subtitlesPath = await this.generateSRTFile(transcription.segments);
       console.log('✅ TranscriptionService: Arquivo SRT gerado');
 

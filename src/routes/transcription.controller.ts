@@ -284,6 +284,12 @@ export class TranscriptionController {
 
       req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
       req.log.info(`TranscriptionController: ${translatedSegments.length} segmentos traduzidos recebidos`);
+      
+      // Log para debug: verificar conteúdo dos segmentos
+      req.log.info(`TranscriptionController: Primeiro segmento - Start: ${translatedSegments[0]?.start}, End: ${translatedSegments[0]?.end}, Text: "${translatedSegments[0]?.text}"`);
+      if (translatedSegments.length > 1) {
+        req.log.info(`TranscriptionController: Segundo segmento - Start: ${translatedSegments[1]?.start}, End: ${translatedSegments[1]?.end}, Text: "${translatedSegments[1]?.text}"`);
+      }
 
       // Obter parâmetros da query
       const query = req.query as any;
