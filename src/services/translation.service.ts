@@ -1,4 +1,4 @@
-import Reverso, { ReversoTranslationResponse } from 'reverso-api';
+import Reverso, { type ReversoTranslationResponse } from 'reverso-api';
 import type { TranscriptionResponse } from '../types/index.js';
 
 export interface TranslationOptions {
