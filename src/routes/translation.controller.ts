@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TranslationService } from '../services/translation.service.js';
-import type { ErrorResponse, TranscriptionResponse, TranslationOptions } from '../types/index.js';
+import type { ErrorResponse, TranscriptionResponse } from '../types/index.js';
+import type { TranslationOptions } from '../services/translation.service.js';
 
 export class TranslationController {
   private translationService: TranslationService;
@@ -35,11 +36,12 @@ export class TranslationController {
         } as ErrorResponse);
       }
 
-      req.log.info(`TranslationController: Traduzindo para ${targetLanguage}`);
+      req.log.info(`TranslationController: Traduzindo para ${targetLanguage}${model ? ` usando modelo ${model}` : ''}`);
 
       const options: TranslationOptions = {
         targetLanguage,
-        sourceLanguage
+        sourceLanguage,
+        model
       };
 
       const result = await this.translationService.translateTranscription(transcription, options);
@@ -52,6 +54,24 @@ export class TranslationController {
 
       return reply.code(500).send({
         error: 'Falha na tradução',
+        detail: error?.message
+      } as ErrorResponse);
+    }
+  }
+
+  /**
+   * Handler para obter modelos de IA disponíveis
+   */
+  async getAvailableModels(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const models = this.translationService.getAvailableModels();
+      return reply.send(models);
+
+    } catch (error: any) {
+      req.log.error(`TranslationController: Erro ao obter modelos - ${error?.message}`);
+
+      return reply.code(500).send({
+        error: 'Falha ao obter modelos disponíveis',
         detail: error?.message
       } as ErrorResponse);
     }

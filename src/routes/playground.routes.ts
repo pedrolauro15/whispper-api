@@ -1085,7 +1085,17 @@ function generatePlaygroundHTML(): string {
                 <option value="he">🇮🇱 Hebraico</option>
                 <option value="hi">🇮🇳 Hindi</option>
               </select>
-              <button id="translate-btn" class="action-btn primary">🤖 Traduzir com LLama3.1</button>
+              
+              <label for="translation-model" style="margin-top: 10px;">Modelo de IA:</label>
+              <select id="translation-model">
+                <option value="llama3.1:8b">🦙 Llama 3.1 8B - Rápido e eficiente</option>
+                <option value="llama3.1:70b">🦙 Llama 3.1 70B - Mais poderoso</option>
+                <option value="llama3.2:3b">🦙 Llama 3.2 3B - Compacto e rápido</option>
+                <option value="qwen2.5:7b">🤖 Qwen 2.5 7B - Excelente para idiomas asiáticos</option>
+                <option value="mistral:7b">⚡ Mistral 7B - Ótimo para idiomas europeus</option>
+              </select>
+              
+              <button id="translate-btn" class="action-btn primary">🤖 Traduzir com IA</button>
             </div>
             <div id="translation-actions" style="display: none; margin-top: 15px; gap: 10px; flex-wrap: wrap;">
               <button id="download-srt-translated" class="action-btn">📥 Download SRT Traduzido</button>
@@ -1662,6 +1672,7 @@ function generatePlaygroundHTML(): string {
     // Translation functionality
     const translateBtn = document.getElementById('translate-btn');
     const targetLanguage = document.getElementById('target-language');
+    const translationModel = document.getElementById('translation-model');
     const translationOutput = document.getElementById('translation-output');
     const translationText = document.getElementById('translation-text');
     const translationSegments = document.getElementById('translation-segments');
@@ -1683,8 +1694,9 @@ function generatePlaygroundHTML(): string {
         return;
       }
       
+      const selectedModel = translationModel.value || 'llama3.1:8b';
       translateBtn.disabled = true;
-      translateBtn.innerHTML = '🤖 Traduzindo com Ollama...';
+      translateBtn.innerHTML = \`🤖 Traduzindo com \${selectedModel}...\`;
       
       try {
         const response = await fetch('/translate/transcription', {
@@ -1695,7 +1707,8 @@ function generatePlaygroundHTML(): string {
           body: JSON.stringify({
             transcription: currentResult,
             targetLanguage: targetLanguage.value,
-            sourceLanguage: currentResult.language || 'auto' // Usar idioma detectado
+            sourceLanguage: currentResult.language || 'auto', // Usar idioma detectado
+            model: selectedModel
           })
         });
         
@@ -1736,7 +1749,7 @@ function generatePlaygroundHTML(): string {
         alert('Erro na tradução: ' + error.message);
       } finally {
         translateBtn.disabled = false;
-        translateBtn.innerHTML = '🤖 Traduzir com LLama3.1';
+        translateBtn.innerHTML = '🤖 Traduzir com IA';
       }
     });
     
