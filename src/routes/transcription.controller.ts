@@ -35,8 +35,9 @@ export class TranscriptionController {
 
       req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
 
-      // Extrair contexto dos campos do formulário
-      const context = await this.extractContextFromRequest(req);
+      // Extrair contexto dos campos do formulário (temporariamente desabilitado)
+      // const context = await this.extractContextFromRequest(req);
+      const context = undefined;
 
       // Processar transcrição
       const result = await this.transcriptionService.transcribeFile(fileUpload, context);
