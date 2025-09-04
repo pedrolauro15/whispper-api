@@ -114,7 +114,7 @@ export class TranslationService {
           });
         });
 
-        console.log(response.translations);
+        console.log('===> ', response);
         
         translatedChunks.push(response.translations?.[0] || chunk);
 
