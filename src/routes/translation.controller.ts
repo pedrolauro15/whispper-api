@@ -16,10 +16,11 @@ export class TranslationController {
     try {
       req.log.info('TranslationController: Iniciando tradução');
 
-      const { transcription, targetLanguage, sourceLanguage } = req.body as {
+      const { transcription, targetLanguage, sourceLanguage, model } = req.body as {
         transcription: TranscriptionResponse;
         targetLanguage: string;
         sourceLanguage?: string;
+        model?: string;
       };
 
       if (!transcription) {

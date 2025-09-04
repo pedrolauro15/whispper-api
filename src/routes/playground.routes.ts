@@ -1412,12 +1412,18 @@ function generatePlaygroundHTML(): string {
     }
     
     function showResults(result) {
+      // Exibir idioma detectado
+      const languageDisplay = result.language ? 
+        \`<div style="background: var(--primary-100); padding: 0.5rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; color: var(--primary-700);">
+          🌍 <strong>Idioma detectado:</strong> \${result.language.toUpperCase()}
+        </div>\` : '';
+      
       // Text tab
-      textOutput.textContent = result.text || '';
+      textOutput.innerHTML = languageDisplay + \`<div style="white-space: pre-wrap;">\${result.text || ''}</div>\`;
       
       // Segments tab
       if (result.segments && result.segments.length > 0) {
-        segmentsOutput.innerHTML = result.segments.map(segment => \`
+        segmentsOutput.innerHTML = languageDisplay + result.segments.map(segment => \`
           <div class="segment">
             <div class="segment-header">
               <span class="segment-time">\${formatTime(segment.start)} → \${formatTime(segment.end)}</span>
@@ -1427,7 +1433,7 @@ function generatePlaygroundHTML(): string {
           </div>
         \`).join('');
       } else {
-        segmentsOutput.innerHTML = '<p style="color: var(--gray-500); text-align: center; padding: 2rem;">Nenhum segmento disponível</p>';
+        segmentsOutput.innerHTML = languageDisplay + '<p style="color: var(--gray-500); text-align: center; padding: 2rem;">Nenhum segmento disponível</p>';
       }
       
       // JSON tab
@@ -1688,7 +1694,8 @@ function generatePlaygroundHTML(): string {
           },
           body: JSON.stringify({
             transcription: currentResult,
-            targetLanguage: targetLanguage.value
+            targetLanguage: targetLanguage.value,
+            sourceLanguage: currentResult.language || 'auto' // Usar idioma detectado
           })
         });
         

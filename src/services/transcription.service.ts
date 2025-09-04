@@ -26,20 +26,30 @@ export class TranscriptionService {
     let tmpPath: string | null = null;
 
     try {
+      console.log('🎵 TranscriptionService: Iniciando processamento de transcrição');
+      console.log(`📁 Arquivo: ${fileUpload.filename} (${fileUpload.mimetype})`);
+
       // 1. Processar e salvar o arquivo
+      console.log('💾 TranscriptionService: Processando e salvando arquivo temporário...');
       tmpPath = await this.fileService.processUploadedFile(fileUpload);
+      console.log(`✅ Arquivo salvo em: ${tmpPath}`);
 
       // 2. Executar transcrição com timeout
+      console.log('🎤 TranscriptionService: Iniciando transcrição com Whisper...');
       const result = await this.executeWithTimeout(tmpPath, context);
+      console.log('✅ TranscriptionService: Transcrição do Whisper concluída');
 
       // 3. Ler e processar resultado
+      console.log('📊 TranscriptionService: Processando resultado da transcrição...');
       const transcription = await this.processTranscriptionResult(result.jsonPath);
+      console.log(`✅ TranscriptionService: Transcrição processada - ${transcription.segments.length} segmentos encontrados`);
 
       return transcription;
 
     } finally {
       // 4. Limpeza
       if (tmpPath) {
+        console.log('🧹 TranscriptionService: Limpando arquivo temporário...');
         await this.fileService.cleanup(tmpPath);
       }
     }
@@ -476,6 +486,8 @@ export class TranscriptionService {
    * Executa a transcrição com timeout
    */
   private async executeWithTimeout(filePath: string, context?: TranscriptionContext) {
+    console.log(`⏱️ TranscriptionService: Configurando timeout de ${config.whisperTimeout / 1000}s`);
+    
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(
         () => reject(new Error(`Timeout de ${config.whisperTimeout / 1000}s no processamento`)),
@@ -483,6 +495,7 @@ export class TranscriptionService {
       );
     });
 
+    console.log('🚀 TranscriptionService: Executando transcrição...');
     return Promise.race([
       this.whisperService.transcribe(filePath, context),
       timeoutPromise
@@ -497,10 +510,13 @@ export class TranscriptionService {
       const raw = await fs.readFile(jsonPath, 'utf8');
       const data = JSON.parse(raw);
 
-      console.log('TranscriptionService: Transcrição processada com sucesso');
+      const language = data.language || 'unknown';
+      console.log(`📍 TranscriptionService: Idioma detectado pelo Whisper: ${language}`);
+      console.log('✅ TranscriptionService: Transcrição processada com sucesso');
 
       return {
         text: (data.text || '').trim(),
+        language: language,
         segments: data.segments || []
       };
 

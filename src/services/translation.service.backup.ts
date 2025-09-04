@@ -5,9 +5,33 @@ export interface TranslationOptions {
   targetLanguage: string;
   sourceLanguage?: string;
   model?: string; // Modelo de IA para tradução
-}
+  /**
+   * Retorna a lista de modelos disponíveis
+   */
+  getAvailableModels(): Record<string, { name: string; description: string }> {
+    const models: Record<string, { name: string; description: string }> = {};
+    
+    for (const [key, value] of Object.entries(this.supportedModels)) {
+      models[key] = {
+        name: value.name,
+        description: value.description
+      };
+    }
+    
+    return models;
+  }
 
-export interface TranslationResult {
+  /**
+   * Retorna a lista de idiomas suportados
+   */
+  getSupportedLanguages(): Record<string, string> {
+    return { ...this.supportedLanguages };
+  }
+
+  /**
+   * Converte código de idioma para nome legível
+   */
+  private getLanguageName(code: string): string {xport interface TranslationResult {
   originalText: string;
   translatedText: string;
   sourceLanguage: string;
@@ -85,30 +109,7 @@ export class TranslationService {
   };
 
   /**
-   * Retorna a lista de modelos disponíveis
-   */
-  getAvailableModels(): Record<string, { name: string; description: string }> {
-    const models: Record<string, { name: string; description: string }> = {};
-    
-    for (const [key, value] of Object.entries(this.supportedModels)) {
-      models[key] = {
-        name: value.name,
-        description: value.description
-      };
-    }
-    
-    return models;
-  }
-
-  /**
-   * Retorna a lista de idiomas suportados
-   */
-  getSupportedLanguages(): Record<string, string> {
-    return { ...this.supportedLanguages };
-  }
-
-  /**
-   * Traduz uma transcrição completa para outro idioma
+   * Traduz o texto completo da transcrição
    */
   async translateTranscription(
     transcription: TranscriptionResponse,
@@ -116,10 +117,7 @@ export class TranslationService {
   ): Promise<TranslationResult> {
     try {
       const targetLangName = this.getLanguageName(options.targetLanguage);
-      const selectedModel = options.model || 'llama3.1:8b';
-      
       console.log(`🌍 TranslationService: Iniciando tradução para ${targetLangName} (${options.targetLanguage})`);
-      console.log(`🤖 Modelo selecionado: ${this.supportedModels[selectedModel as keyof typeof this.supportedModels]?.name || selectedModel}`);
       console.log(`📝 Texto original tem ${transcription.text.length} caracteres`);
       console.log(`🔢 Encontrados ${transcription.segments?.length || 0} segmentos para traduzir`);
 
@@ -154,7 +152,7 @@ export class TranslationService {
   }
 
   /**
-   * Traduz um texto usando Ollama com modelo selecionado
+   * Traduz um texto usando Ollama com llama3.1
    */
   private async translateText(text: string, options: TranslationOptions): Promise<string> {
     if (!text || text.trim() === '') {
@@ -164,46 +162,59 @@ export class TranslationService {
     try {
       const sourceLanguage = this.getLanguageName(options.sourceLanguage || 'pt');
       const targetLanguage = this.getLanguageName(options.targetLanguage);
-      const selectedModel = options.model || 'llama3.1:8b';
-      const modelConfig = this.supportedModels[selectedModel as keyof typeof this.supportedModels];
 
-      console.log(`TranslationService: Traduzindo de ${sourceLanguage} para ${targetLanguage} usando ${selectedModel}`);
+      console.log(`TranslationService: Traduzindo de ${sourceLanguage} para ${targetLanguage}`);
 
       const prompt = `You are a professional translator. Translate the following text from ${sourceLanguage} to ${targetLanguage}. 
 
 IMPORTANT INSTRUCTIONS:
 - Only return the translated text, nothing else
-- Maintain the original formatting and punctuation
-- Keep technical terms when appropriate
-- Preserve proper nouns unless they have standard translations
-- Ensure natural and fluent translation in the target language
+- Maintain the original meaning and tone
+- Do not add explanations, comments, or metadata
+- Preserve formatting and punctuation
+- If you cannot translate, return the original text
 
 Text to translate:
-"${text}"`;
+"${text}"
+
+Translation:`;
 
       const response = await this.ollama.generate({
-        model: selectedModel,
-        prompt,
+        model: 'llama3.1:8b',
+        prompt: prompt,
         stream: false,
         options: {
-          temperature: modelConfig?.temperature || 0.3,
-          top_p: modelConfig?.top_p || 0.9,
-          num_predict: -1
+          temperature: 0.3,
+          top_p: 0.9,
+          num_predict: 512
         }
       });
 
-      return response.response.trim();
+      let translatedText = response.response.trim();
+      
+      // Remover aspas extras se existirem
+      if (translatedText.startsWith('"') && translatedText.endsWith('"')) {
+        translatedText = translatedText.slice(1, -1);
+      }
+
+      return translatedText || text;
 
     } catch (error) {
-      console.error('TranslationService: Erro na tradução do texto:', error);
-      throw new Error(`Erro ao traduzir texto: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('TranslationService: Erro ao traduzir texto:', error);
+      
+      // Em caso de erro, retornar o texto original
+      console.warn('TranslationService: Retornando texto original devido ao erro');
+      return text;
     }
   }
 
   /**
-   * Traduz segmentos individuais
+   * Traduz os segmentos individualmente
    */
-  private async translateSegments(segments: any[], options: TranslationOptions): Promise<Array<{
+  private async translateSegments(
+    segments: any[],
+    options: TranslationOptions
+  ): Promise<Array<{
     id?: number;
     start?: number;
     end?: number;
@@ -211,16 +222,13 @@ Text to translate:
     translatedText?: string;
   }>> {
     const translatedSegments = [];
-    const selectedModel = options.model || 'llama3.1:8b';
 
-    for (let i = 0; i < segments.length; i++) {
-      const segment = segments[i];
-      
+    console.log(`TranslationService: Traduzindo ${segments.length} segmentos`);
+
+    for (const segment of segments) {
       if (segment.text && segment.text.trim()) {
         try {
-          console.log(`🔄 Traduzindo segmento ${i + 1}/${segments.length}: "${segment.text.substring(0, 50)}..."`);
-          
-          const translatedText = await this.translateText(segment.text.trim(), options);
+          const translatedText = await this.translateText(segment.text, options);
           
           translatedSegments.push({
             id: segment.id,
@@ -252,7 +260,7 @@ Text to translate:
   }
 
   /**
-   * Converte código de idioma para nome legível
+   * Converte código de idioma para nome completo
    */
   private getLanguageName(code: string): string {
     const lowerCode = code.toLowerCase();
@@ -280,14 +288,43 @@ Text to translate:
       case 'zh_tw':
         return '中文';
       default:
-        return code.charAt(0).toUpperCase() + code.slice(1);
+        console.warn(`TranslationService: Idioma não mapeado: ${code}, usando 'English' como fallback`);
+        return 'English';
     }
   }
 
   /**
-   * Adiciona delay entre operações
+   * Utilitário para pausas entre requisições
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Retorna lista de idiomas suportados
+   */
+  getSupportedLanguages(): { code: string; name: string; nativeName: string }[] {
+    return [
+      { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
+      { code: 'en', name: 'English', nativeName: 'English' },
+      { code: 'es', name: 'Spanish', nativeName: 'Español' },
+      { code: 'fr', name: 'French', nativeName: 'Français' },
+      { code: 'de', name: 'German', nativeName: 'Deutsch' },
+      { code: 'it', name: 'Italian', nativeName: 'Italiano' },
+      { code: 'ru', name: 'Russian', nativeName: 'Русский' },
+      { code: 'ja', name: 'Japanese', nativeName: '日本語' },
+      { code: 'ko', name: 'Korean', nativeName: '한국어' },
+      { code: 'zh', name: 'Chinese', nativeName: '中文' },
+      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
+      { code: 'nl', name: 'Dutch', nativeName: 'Nederlands' },
+      { code: 'pl', name: 'Polish', nativeName: 'Polski' },
+      { code: 'sv', name: 'Swedish', nativeName: 'Svenska' },
+      { code: 'no', name: 'Norwegian', nativeName: 'Norsk' },
+      { code: 'da', name: 'Danish', nativeName: 'Dansk' },
+      { code: 'fi', name: 'Finnish', nativeName: 'Suomi' },
+      { code: 'tr', name: 'Turkish', nativeName: 'Türkçe' },
+      { code: 'he', name: 'Hebrew', nativeName: 'עברית' },
+      { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' }
+    ];
   }
 }

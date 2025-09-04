@@ -5,6 +5,7 @@ export interface WhisperResult {
 
 export interface TranscriptionResponse {
   text: string;
+  language?: string; // Idioma detectado pelo Whisper
   segments: Array<{
     id?: number;
     seek?: number;

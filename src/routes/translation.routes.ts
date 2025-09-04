@@ -4,7 +4,7 @@ import { TranslationController } from './translation.controller.js';
 // Schema OpenAPI para o endpoint de tradução
 export const translateSchema = {
   summary: 'Traduz uma transcrição existente',
-  description: 'Recebe uma transcrição e traduz para o idioma especificado usando a API Reverso',
+  description: 'Recebe uma transcrição e traduz para o idioma especificado usando Ollama com modelo selecionável',
   tags: ['translation'],
   body: {
     type: 'object',
@@ -41,6 +41,11 @@ export const translateSchema = {
         type: 'string',
         description: 'Código do idioma de origem (opcional, auto-detectado se não fornecido)',
         examples: ['pt', 'en', 'es', 'fr', 'de']
+      },
+      model: {
+        type: 'string',
+        description: 'Modelo de IA para tradução (opcional, padrão: llama3.1:8b)',
+        examples: ['llama3.1:8b', 'llama3.1:70b', 'llama3.2:3b', 'qwen2.5:7b', 'mistral:7b']
       }
     },
     required: ['transcription', 'targetLanguage']
@@ -101,7 +106,33 @@ export const translateSchema = {
   }
 };
 
-// Schema OpenAPI para o endpoint de idiomas suportados
+// Schema para obter modelos disponíveis
+export const availableModelsSchema = {
+  summary: 'Lista modelos de IA disponíveis para tradução',
+  description: 'Retorna todos os modelos de IA suportados com suas características',
+  tags: ['translation'],
+  response: {
+    200: {
+      description: 'Lista de modelos disponíveis',
+      type: 'object',
+      additionalProperties: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Nome legível do modelo'
+          },
+          description: {
+            type: 'string',
+            description: 'Descrição das características do modelo'
+          }
+        }
+      }
+    }
+  }
+};
+
+// Schema para obter idiomas suportados
 export const supportedLanguagesSchema = {
   summary: 'Lista idiomas suportados para tradução',
   description: 'Retorna a lista de idiomas disponíveis para tradução',
@@ -146,6 +177,11 @@ export async function translationRoutes(app: FastifyInstance) {
   app.post('/translate/transcription', {
     schema: translateSchema
   }, controller.translateTranscription.bind(controller));
+
+  // Endpoint para obter modelos disponíveis
+  app.get('/translation/models', {
+    schema: availableModelsSchema
+  }, controller.getAvailableModels.bind(controller));
 
   // Endpoint para obter idiomas suportados
   app.get('/translation/languages', {

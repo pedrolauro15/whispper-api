@@ -77,10 +77,13 @@ export class WhisperService {
       '--model', this.model
     ];
     
-    // Adicionar linguagem (prioridade: contexto > configuração padrão)
-    const language = context?.language || this.language;
-    if (language) {
+    // Adicionar linguagem apenas se especificada explicitamente
+    const language = context?.language;
+    if (language && language.trim() !== '') {
       args.push('--language', language);
+      console.log(`WhisperService: Idioma especificado: ${language}`);
+    } else {
+      console.log('WhisperService: Usando auto-detecção de idioma');
     }
 
     // Adicionar prompt/contexto se fornecido
