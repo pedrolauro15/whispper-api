@@ -362,15 +362,23 @@ export class TranscriptionService {
    * Gera um arquivo SRT a partir dos segmentos de transcrição
    */
   private async generateSRTFile(segments: any[]): Promise<string> {
+    console.log(`🔍 generateSRTFile: Processando ${segments.length} segmentos`);
+    console.log(`🔍 generateSRTFile: Primeiro segmento completo:`, JSON.stringify(segments[0], null, 2));
+    
     const srtContent = segments.map((segment, index) => {
       const startTime = this.formatTimeForSRT(segment.start);
       const endTime = this.formatTimeForSRT(segment.end);
+      
+      console.log(`🔍 generateSRTFile: Segmento ${index + 1} - Texto: "${segment.text}"`);
       
       // Quebrar texto longo em múltiplas linhas para melhor legibilidade
       const formattedText = this.formatSubtitleText(segment.text);
       
       return `${index + 1}\n${startTime} --> ${endTime}\n${formattedText}\n`;
     }).join('\n');
+
+    console.log(`🔍 generateSRTFile: Conteúdo SRT gerado:`);
+    console.log(srtContent.substring(0, 200) + '...');
 
     const srtPath = join(tmpdir(), `subtitles_${randomUUID()}.srt`);
     await fs.writeFile(srtPath, srtContent, 'utf8');
