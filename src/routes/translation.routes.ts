@@ -143,7 +143,7 @@ export async function translationRoutes(app: FastifyInstance) {
   const controller = new TranslationController();
 
   // Endpoint para traduzir transcrição
-  app.post('/translate', {
+  app.post('/translate/transcription', {
     schema: translateSchema
   }, controller.translateTranscription.bind(controller));
 

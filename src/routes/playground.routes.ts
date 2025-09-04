@@ -1639,7 +1639,7 @@ function generatePlaygroundHTML(): string {
           },
           body: JSON.stringify({
             transcription: currentResult,
-            to: targetLanguage.value
+            targetLanguage: targetLanguage.value
           })
         });
         
