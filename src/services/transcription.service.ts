@@ -46,6 +46,78 @@ export class TranscriptionService {
   }
 
   /**
+   * Processa um vídeo e gera versão com legendas usando segmentos traduzidos
+   */
+  async generateVideoWithTranslatedSubtitles(
+    fileUpload: FileUpload,
+    translatedSegments: any[],
+    subtitleStyle?: SubtitleStyle,
+    hardcodedSubs: boolean = true
+  ): Promise<VideoWithSubtitlesResponse> {
+    let tmpVideoPath: string | null = null;
+    let subtitlesPath: string | null = null;
+    let outputVideoPath: string | null = null;
+
+    try {
+      // 1. Processar arquivo de vídeo
+      tmpVideoPath = await this.fileService.processUploadedFile(fileUpload);
+
+      // 2. Gerar arquivo de legendas SRT usando os segmentos traduzidos
+      subtitlesPath = await this.generateSRTFileFromSegments(translatedSegments);
+
+      // 3. Gerar vídeo com legendas usando FFmpeg
+      const videoResult = hardcodedSubs 
+        ? await this.videoService.addHardcodedSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath: subtitlesPath!,
+            subtitleStyle
+          })
+        : await this.videoService.addSoftSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath: subtitlesPath!
+          });
+
+      if (!videoResult.success) {
+        throw new Error(videoResult.message);
+      }
+
+      outputVideoPath = videoResult.outputPath;
+
+      // 4. Ler arquivo de vídeo como buffer
+      const videoBuffer = await fs.readFile(outputVideoPath);
+
+      return {
+        transcription: { segments: translatedSegments, text: translatedSegments.map(s => s.text).join(' ') },
+        videoBuffer,
+        videoPath: outputVideoPath,
+        subtitlesPath,
+        success: true,
+        message: 'Vídeo com legendas traduzidas gerado com sucesso'
+      };
+
+    } catch (error) {
+      return {
+        transcription: null,
+        videoBuffer: null,
+        videoPath: null,
+        subtitlesPath: null,
+        success: false,
+        message: `Erro ao processar vídeo com legendas traduzidas: ${error instanceof Error ? error.message : String(error)}`
+      };
+
+    } finally {
+      // Limpeza (mantém o vídeo final temporariamente para download)
+      if (tmpVideoPath) {
+        await this.fileService.cleanup(tmpVideoPath);
+      }
+      if (subtitlesPath) {
+        await this.videoService.cleanup(subtitlesPath);
+      }
+      // outputVideoPath será limpo depois do download
+    }
+  }
+
+  /**
    * Processa um vídeo e gera versão com legendas
    */
   async transcribeAndAddSubtitlesToVideo(
@@ -139,6 +211,27 @@ export class TranscriptionService {
     await fs.writeFile(srtPath, srtContent, 'utf8');
     
     console.log(`TranscriptionService: Arquivo SRT gerado: ${srtPath}`);
+    return srtPath;
+  }
+
+  /**
+   * Gera um arquivo SRT a partir de segmentos traduzidos
+   */
+  private async generateSRTFileFromSegments(segments: any[]): Promise<string> {
+    const srtContent = segments.map((segment, index) => {
+      const startTime = this.formatTimeForSRT(segment.start);
+      const endTime = this.formatTimeForSRT(segment.end);
+      
+      // Quebrar texto longo em múltiplas linhas para melhor legibilidade
+      const formattedText = this.formatSubtitleText(segment.text);
+      
+      return `${index + 1}\n${startTime} --> ${endTime}\n${formattedText}\n`;
+    }).join('\n');
+
+    const srtPath = join(tmpdir(), `translated_subtitles_${randomUUID()}.srt`);
+    await fs.writeFile(srtPath, srtContent, 'utf8');
+    
+    console.log(`TranscriptionService: Arquivo SRT traduzido gerado: ${srtPath}`);
     return srtPath;
   }
 

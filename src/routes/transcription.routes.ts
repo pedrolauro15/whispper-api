@@ -235,4 +235,11 @@ export async function transcriptionRoutes(fastify: FastifyInstance) {
     { schema: videoWithSubtitlesSchema },
     controller.transcribeVideoWithSubtitles.bind(controller)
   );
+
+  // Endpoint de vídeo com legendas traduzidas
+  fastify.post(
+    '/video-with-translated-subtitles',
+    { schema: videoWithSubtitlesSchema },
+    controller.generateVideoWithTranslatedSubtitles.bind(controller)
+  );
 }

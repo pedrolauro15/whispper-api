@@ -868,6 +868,23 @@ function generatePlaygroundHTML(): string {
       font-size: 14px;
       line-height: 1.4;
     }
+    
+    /* Translation actions */
+    #translation-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+    
+    #translation-actions .action-btn {
+      white-space: nowrap;
+      min-width: 160px;
+    }
   </style>
 </head>
 <body>
@@ -1070,6 +1087,11 @@ function generatePlaygroundHTML(): string {
               </select>
               <button id="translate-btn" class="action-btn primary">🤖 Traduzir com LLama3.1</button>
             </div>
+            <div id="translation-actions" style="display: none; margin-top: 15px; gap: 10px; flex-wrap: wrap;">
+              <button id="download-srt-translated" class="action-btn">📥 Download SRT Traduzido</button>
+              <button id="download-vtt-translated" class="action-btn">📥 Download VTT Traduzido</button>
+              <button id="generate-translated-video" class="action-btn primary">🎬 Vídeo com Legendas Traduzidas</button>
+            </div>
             <div style="margin-top: 10px; padding: 10px; background: #e8f4fd; border-radius: 6px; font-size: 0.9rem; color: #1976d2;">
               <strong>💡 Powered by Ollama:</strong> Tradução usando o modelo LLama3.1 no servidor caucaia.saudehd.com.br:11434.
             </div>
@@ -1179,6 +1201,7 @@ function generatePlaygroundHTML(): string {
     
     let currentResult = null;
     let currentFile = null;
+    let currentTranslation = null;
     
     // Tab switching
     tabs.forEach(tab => {
@@ -1496,6 +1519,24 @@ function generatePlaygroundHTML(): string {
       return header + content;
     }
     
+    function generateTranslatedSRT(segments) {
+      return segments.map((segment, index) => {
+        const startTime = formatTime(segment.start);
+        const endTime = formatTime(segment.end);
+        return \`\${index + 1}\\n\${startTime} --> \${endTime}\\n\${segment.translatedText}\\n\`;
+      }).join('\\n');
+    }
+    
+    function generateTranslatedVTT(segments) {
+      const header = 'WEBVTT\\n\\n';
+      const content = segments.map((segment, index) => {
+        const startTime = formatTimeVTT(segment.start);
+        const endTime = formatTimeVTT(segment.end);
+        return \`\${startTime} --> \${endTime}\\n\${segment.translatedText}\\n\`;
+      }).join('\\n');
+      return header + content;
+    }
+    
     // Download event listeners
     downloadTxt.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1619,6 +1660,11 @@ function generatePlaygroundHTML(): string {
     const translationText = document.getElementById('translation-text');
     const translationSegments = document.getElementById('translation-segments');
     
+    // Translation download buttons
+    const downloadSrtTranslated = document.getElementById('download-srt-translated');
+    const downloadVttTranslated = document.getElementById('download-vtt-translated');
+    const generateTranslatedVideo = document.getElementById('generate-translated-video');
+    
     // Traduzir transcrição
     translateBtn.addEventListener('click', async () => {
       if (!currentResult) {
@@ -1672,12 +1718,130 @@ function generatePlaygroundHTML(): string {
         // Mostrar seção de resultado
         translationOutput.style.display = 'block';
         
+        // Armazenar tradução atual para uso em vídeos e downloads
+        currentTranslation = result;
+        
+        // Mostrar botões de ações de tradução
+        document.getElementById('translation-actions').style.display = 'flex';
+        
       } catch (error) {
         console.error('Erro na tradução:', error);
         alert('Erro na tradução: ' + error.message);
       } finally {
         translateBtn.disabled = false;
         translateBtn.innerHTML = '🤖 Traduzir com LLama3.1';
+      }
+    });
+    
+    // Download SRT traduzido
+    downloadSrtTranslated.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentTranslation && currentTranslation.segments) {
+        const languageCode = currentTranslation.targetLanguage;
+        const filename = currentFile ? 
+          currentFile.name.replace(/\\.[^/.]+$/, '') + \`_\${languageCode}.srt\` : 
+          \`legendas_\${languageCode}.srt\`;
+        downloadFile(generateTranslatedSRT(currentTranslation.segments), filename, 'text/srt');
+      } else {
+        alert('Faça uma tradução primeiro');
+      }
+    });
+    
+    // Download VTT traduzido
+    downloadVttTranslated.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentTranslation && currentTranslation.segments) {
+        const languageCode = currentTranslation.targetLanguage;
+        const filename = currentFile ? 
+          currentFile.name.replace(/\\.[^/.]+$/, '') + \`_\${languageCode}.vtt\` : 
+          \`legendas_\${languageCode}.vtt\`;
+        downloadFile(generateTranslatedVTT(currentTranslation.segments), filename, 'text/vtt');
+      } else {
+        alert('Faça uma tradução primeiro');
+      }
+    });
+    
+    // Gerar vídeo com legendas traduzidas
+    generateTranslatedVideo.addEventListener('click', async () => {
+      if (!currentFile) {
+        alert('❌ Nenhum arquivo selecionado. Por favor, selecione um vídeo primeiro.');
+        return;
+      }
+      
+      if (!currentFile.type.startsWith('video/')) {
+        alert('❌ Por favor, selecione um arquivo de vídeo para gerar legendas traduzidas.');
+        return;
+      }
+      
+      if (!currentTranslation) {
+        alert('❌ Faça uma tradução primeiro.');
+        return;
+      }
+      
+      // Confirmar ação
+      const languageName = currentTranslation.targetLanguage;
+      const confirmed = confirm(\`🎬 Gerar vídeo com legendas traduzidas para \${languageName.toUpperCase()}?\\n\\nEste processo pode demorar alguns minutos dependendo do tamanho do vídeo.\\n\\nClique OK para continuar.\`);
+      if (!confirmed) return;
+      
+      const formData = new FormData();
+      formData.append('video', currentFile);
+      
+      // Obter valores personalizados dos controles
+      const fontSize = document.getElementById('font-size-select').value;
+      const marginVertical = document.getElementById('margin-select').value;
+      const borderWidth = document.getElementById('border-width-select').value;
+      
+      // UI loading state
+      generateTranslatedVideo.disabled = true;
+      generateTranslatedVideo.innerHTML = '⏳ Gerando vídeo traduzido...';
+      showStatus('🎬', 'Processando vídeo com legendas traduzidas...', 'info');
+      
+      try {
+        // Preparar segmentos traduzidos com os tempos originais
+        const translatedSegments = currentResult.segments.map((segment, index) => ({
+          start: segment.start,
+          end: segment.end,
+          text: currentTranslation.segments[index]?.text || segment.text
+        }));
+
+        // Adicionar segmentos traduzidos ao FormData
+        formData.append('translatedSegments', JSON.stringify(translatedSegments));
+        
+        const response = await fetch('/video-with-translated-subtitles?hardcoded=true&fontSize=' + fontSize + '&fontColor=%23ffffff&backgroundColor=%23000000&borderWidth=' + borderWidth + '&marginVertical=' + marginVertical, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Erro desconhecido');
+        }
+        
+        // Download do vídeo
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = currentFile.name.replace(/\\.[^/.]+$/, '') + \`_\${currentTranslation.targetLanguage}_subtitled.mp4\`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showStatus('✅', 'Vídeo com legendas traduzidas gerado e baixado com sucesso!', 'success');
+        
+      } catch (error) {
+        console.error('Erro ao gerar vídeo traduzido:', error);
+        showStatus('❌', 'Erro: ' + error.message, 'error');
+        
+        // Mostrar informações adicionais se for erro de FFmpeg
+        if (error.message.includes('FFmpeg')) {
+          alert('❌ Erro do FFmpeg\\n\\nPara usar esta funcionalidade, você precisa ter o FFmpeg instalado no sistema.\\n\\nInstale o FFmpeg:\\n• macOS: brew install ffmpeg\\n• Ubuntu: sudo apt install ffmpeg\\n• Windows: Baixe de https://ffmpeg.org\\n\\nApós instalar, reinicie o servidor.');
+        }
+        
+      } finally {
+        generateTranslatedVideo.disabled = false;
+        generateTranslatedVideo.innerHTML = '🎬 Vídeo com Legendas Traduzidas';
       }
     });
     

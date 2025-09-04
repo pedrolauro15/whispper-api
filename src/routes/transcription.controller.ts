@@ -230,4 +230,94 @@ export class TranscriptionController {
 
     return mimetype.startsWith('video/');
   }
+
+  /**
+   * Gera vídeo com legendas traduzidas
+   */
+  async generateVideoWithTranslatedSubtitles(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
+
+      // Obter arquivo do multipart
+      const fileUpload = await (req as any).file() as FileUpload;
+
+      if (!fileUpload) {
+        return reply.code(400).send({
+          error: 'Nenhum arquivo enviado'
+        } as ErrorResponse);
+      }
+
+      // Validar que é um arquivo de vídeo
+      if (!this.isValidVideoFile(fileUpload)) {
+        return reply.code(400).send({
+          error: 'Tipo de arquivo inválido. Envie um arquivo de vídeo.',
+          detail: `Tipo recebido: ${fileUpload.mimetype}`
+        } as ErrorResponse);
+      }
+
+      req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
+
+      // Obter parâmetros da query
+      const query = req.query as any;
+      const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
+      
+      // Obter segmentos traduzidos do body da requisição
+      const body = req.body as any;
+      const translatedSegments = body.translatedSegments;
+
+      if (!translatedSegments || !Array.isArray(translatedSegments)) {
+        return reply.code(400).send({
+          error: 'Segmentos traduzidos são obrigatórios',
+          detail: 'O campo translatedSegments deve ser um array de segmentos traduzidos'
+        } as ErrorResponse);
+      }
+      
+      // Estilo das legendas (otimizado para tamanho compacto)
+      const subtitleStyle = {
+        fontName: query.fontName || 'Arial',
+        fontSize: parseInt(query.fontSize) || 18, // Reduzido de 24 para 18
+        fontColor: query.fontColor || '#ffffff',
+        backgroundColor: query.backgroundColor || '#000000',
+        borderWidth: parseInt(query.borderWidth) || 1, // Reduzido de 2 para 1
+        borderColor: query.borderColor || '#000000',
+        marginVertical: parseInt(query.marginVertical) || 20 // Margem menor
+      };
+
+      // Processar vídeo com legendas traduzidas
+      const result = await this.transcriptionService.generateVideoWithTranslatedSubtitles(
+        fileUpload,
+        translatedSegments,
+        subtitleStyle,
+        hardcodedSubs
+      );
+
+      if (!result.success) {
+        return reply.code(500).send({
+          error: 'Falha ao gerar vídeo com legendas traduzidas',
+          detail: result.message
+        } as ErrorResponse);
+      }
+
+      req.log.info('TranscriptionController: Vídeo com legendas traduzidas gerado com sucesso');
+
+      // Definir headers para download do vídeo
+      const fileName = fileUpload.filename 
+        ? fileUpload.filename.replace(/\.[^/.]+$/, '_with_translated_subtitles.mp4')
+        : 'video_with_translated_subtitles.mp4';
+
+      reply.header('Content-Type', 'video/mp4');
+      reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
+      
+      // Enviar o buffer do vídeo
+      return reply.send(result.videoBuffer);
+
+    } catch (error: any) {
+      req.log.error(`TranscriptionController: Erro ao gerar vídeo com legendas traduzidas - ${error?.message}`);
+
+      return reply.code(500).send({
+        error: 'Falha ao gerar vídeo com legendas traduzidas',
+        detail: error?.message
+      } as ErrorResponse);
+    }
+  }
 }
