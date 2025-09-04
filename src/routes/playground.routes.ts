@@ -1801,7 +1801,7 @@ function generatePlaygroundHTML(): string {
         const translatedSegments = currentResult.segments.map((segment, index) => ({
           start: segment.start,
           end: segment.end,
-          text: currentTranslation.segments[index]?.text || segment.text
+          text: currentTranslation.segments[index]?.translatedText || segment.text
         }));
 
         // Adicionar segmentos traduzidos ao FormData

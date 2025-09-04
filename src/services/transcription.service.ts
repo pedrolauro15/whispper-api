@@ -59,12 +59,17 @@ export class TranscriptionService {
     let outputVideoPath: string | null = null;
 
     try {
+      console.log('🎬 TranslationService: Iniciando processamento do arquivo de vídeo...');
       // 1. Processar arquivo de vídeo
       tmpVideoPath = await this.fileService.processUploadedFile(fileUpload);
+      console.log('✅ TranslationService: Arquivo de vídeo processado');
 
+      console.log('📝 TranslationService: Gerando arquivo SRT traduzido...');
       // 2. Gerar arquivo de legendas SRT usando os segmentos traduzidos
       subtitlesPath = await this.generateSRTFileFromSegments(translatedSegments);
+      console.log('✅ TranslationService: Arquivo SRT traduzido gerado');
 
+      console.log('🎥 TranslationService: Iniciando processamento FFmpeg...');
       // 3. Gerar vídeo com legendas usando FFmpeg
       const videoResult = hardcodedSubs 
         ? await this.videoService.addHardcodedSubtitles({
@@ -76,6 +81,7 @@ export class TranscriptionService {
             inputVideoPath: tmpVideoPath,
             subtitlesPath: subtitlesPath!
           });
+      console.log('✅ TranslationService: Processamento FFmpeg concluído');
 
       if (!videoResult.success) {
         throw new Error(videoResult.message);
@@ -83,8 +89,10 @@ export class TranscriptionService {
 
       outputVideoPath = videoResult.outputPath;
 
+      console.log('📹 TranslationService: Lendo buffer do vídeo final...');
       // 4. Ler arquivo de vídeo como buffer
       const videoBuffer = await fs.readFile(outputVideoPath);
+      console.log('✅ TranslationService: Vídeo com legendas traduzidas concluído!');
 
       return {
         transcription: { segments: translatedSegments, text: translatedSegments.map(s => s.text).join(' ') },
