@@ -240,6 +240,6 @@ export async function transcriptionRoutes(fastify: FastifyInstance) {
   fastify.post(
     '/video-with-translated-subtitles',
     { schema: videoWithSubtitlesSchema },
-    controller.transcribeVideoWithSubtitles.bind(controller)
+    controller.generateVideoWithTranslatedSubtitles.bind(controller)
   );
 }
