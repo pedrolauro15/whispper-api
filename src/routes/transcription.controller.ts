@@ -146,54 +146,87 @@ export class TranscriptionController {
     try {
       req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
 
-      // Processar multipart para obter arquivo e segmentos
+      // Nova abordagem: coletar todas as partes em paralelo com timeout
       let fileUpload: FileUpload | null = null;
-      let translatedSegments: any[] | null = null;
-      let partsProcessed = 0;
+      let translatedSegments: any[] = [];
 
-      // Usar abordagem que processa todas as partes do multipart
-      req.log.info('TranscriptionController: Iniciando processamento multipart...');
-      const parts = (req as any).parts();
-
-      console.log('==> ', parts);
+      req.log.info('TranscriptionController: Coletando partes do multipart...');
       
-      
-      for await (const part of parts) {
-        partsProcessed++;
-        req.log.info(`TranscriptionController: Processando parte ${partsProcessed}/${parts.length} - tipo: ${part.type}`);
-
-        if (part.type === 'file') {
-          fileUpload = part as FileUpload;
-          req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
-        } else if (part.type === 'field') {
-          req.log.info(`TranscriptionController: Campo recebido - ${part.fieldname}`);
-          
-          if (part.fieldname === 'translatedSegments') {
-            try {
-              // Ler o valor do campo
-              const value = part.value;
-              req.log.info(`TranscriptionController: Campo translatedSegments recebido (${value.length} chars)`);
-              
-              translatedSegments = JSON.parse(value);
-              req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos processados`);
-              
-              if (translatedSegments && translatedSegments.length > 0) {
-                req.log.info(`TranscriptionController: Primeiro segmento: "${translatedSegments[0].text?.substring(0, 50)}..."`);
-              }
-            } catch (parseError) {
-              req.log.error(`Erro ao fazer parse dos segmentos: ${parseError}`);
-            }
-          }
-        }
+      const collectParts = new Promise<void>((resolve, reject) => {
+        let partsProcessed = 0;
+        const maxParts = 5;
         
-        // Evitar loop infinito
-        if (partsProcessed > 10) {
-          req.log.warn('TranscriptionController: Limite de partes atingido, parando');
-          break;
+        const parts = (req as any).parts();
+        
+        const processNextPart = async () => {
+          try {
+            const { value, done } = await parts.next();
+            
+            if (done) {
+              req.log.info('TranscriptionController: Fim das partes do multipart');
+              resolve();
+              return;
+            }
+            
+            const part = value;
+            partsProcessed++;
+            
+            req.log.info(`TranscriptionController: Processando parte ${partsProcessed} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
+            
+            if (part.type === 'file') {
+              fileUpload = part as FileUpload;
+              req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
+            } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
+              try {
+                const value = part.value;
+                req.log.info(`TranscriptionController: Campo translatedSegments recebido (${value.length} chars)`);
+                
+                translatedSegments = JSON.parse(value);
+                req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos processados`);
+              } catch (parseError) {
+                req.log.error(`Erro ao fazer parse dos segmentos: ${parseError}`);
+              }
+            }
+            
+            // Continuar apenas se não tivermos tudo ou não atingimos o limite
+            if (partsProcessed < maxParts && (!fileUpload || translatedSegments.length === 0)) {
+              setImmediate(processNextPart);
+            } else {
+              req.log.info(`TranscriptionController: Parando processamento - arquivo: ${!!fileUpload}, segmentos: ${translatedSegments.length}, partes: ${partsProcessed}`);
+              resolve();
+            }
+            
+          } catch (error) {
+            req.log.error(`Erro ao processar parte: ${error}`);
+            reject(error);
+          }
+        };
+        
+        processNextPart();
+      });
+
+      // Timeout de 5 segundos
+      const timeout = new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout no processamento multipart')), 5000);
+      });
+
+      try {
+        await Promise.race([collectParts, timeout]);
+      } catch (error) {
+        req.log.error(`Erro no multipart: ${error}`);
+        
+        // Fallback: tentar obter apenas o arquivo
+        if (!fileUpload) {
+          try {
+            fileUpload = await (req as any).file() as FileUpload;
+            req.log.info('TranscriptionController: Arquivo obtido via fallback');
+          } catch (fallbackError) {
+            req.log.error(`Erro no fallback: ${fallbackError}`);
+          }
         }
       }
 
-      req.log.info(`TranscriptionController: Multipart processado - ${partsProcessed} partes, arquivo: ${!!fileUpload}, segmentos: ${!!translatedSegments}`);
+      req.log.info(`TranscriptionController: Processamento concluído - arquivo: ${!!fileUpload}, segmentos: ${translatedSegments.length}`);
 
       if (!fileUpload) {
         return reply.code(400).send({
@@ -236,7 +269,7 @@ export class TranscriptionController {
       const result = await this.transcriptionService.generateVideoWithCustomSegments(
         fileUpload,
         { 
-          text: translatedSegments.map(s => s.text).join(' '), 
+          text: translatedSegments.map((s: any) => s.text).join(' '), 
           segments: translatedSegments 
         },
         subtitleStyle,
