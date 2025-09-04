@@ -1,4 +1,4 @@
-import Reverso, { type ReversoTranslationResponse } from 'reverso-api';
+import { Ollama } from 'ollama';
 import type { TranscriptionResponse } from '../types/index.js';
 
 export interface TranslationOptions {
@@ -21,32 +21,33 @@ export interface TranslationResult {
 }
 
 export class TranslationService {
-  private reverso: Reverso;
+  private ollama: Ollama;
   
   constructor() {
-    this.reverso = new Reverso();
+    this.ollama = new Ollama({ host: 'http://caucaia.saudehd.com.br:11434' });
   }
+
   private readonly supportedLanguages = {
-    'pt': 'portuguese',
-    'en': 'english',
-    'es': 'spanish',
-    'fr': 'french',
-    'de': 'german',
-    'it': 'italian',
-    'ru': 'russian',
-    'ja': 'japanese',
-    'ko': 'korean',
-    'zh': 'chinese',
-    'ar': 'arabic',
-    'nl': 'dutch',
-    'pl': 'polish',
-    'sv': 'swedish',
-    'no': 'norwegian',
-    'da': 'danish',
-    'fi': 'finnish',
-    'tr': 'turkish',
-    'he': 'hebrew',
-    'hi': 'hindi'
+    'pt': 'Português',
+    'en': 'English',
+    'es': 'Español',
+    'fr': 'Français',
+    'de': 'Deutsch',
+    'it': 'Italiano',
+    'ru': 'Русский',
+    'ja': '日本語',
+    'ko': '한국어',
+    'zh': '中文',
+    'ar': 'العربية',
+    'nl': 'Nederlands',
+    'pl': 'Polski',
+    'sv': 'Svenska',
+    'no': 'Norsk',
+    'da': 'Dansk',
+    'fi': 'Suomi',
+    'tr': 'Türkçe',
+    'he': 'עברית',
+    'hi': 'हिन्दी'
   };
 
   /**
@@ -86,7 +87,7 @@ export class TranslationService {
   }
 
   /**
-   * Traduz um texto usando a API Reverso
+   * Traduz um texto usando Ollama com llama3.1
    */
   private async translateText(text: string, options: TranslationOptions): Promise<string> {
     if (!text || text.trim() === '') {
@@ -94,39 +95,51 @@ export class TranslationService {
     }
 
     try {
-      // Dividir texto em chunks menores para evitar limites da API
-      const chunks = this.splitTextIntoChunks(text, 1000);
-      const translatedChunks: string[] = [];
+      const sourceLanguage = this.getLanguageName(options.sourceLanguage || 'pt');
+      const targetLanguage = this.getLanguageName(options.targetLanguage);
 
-      for (const chunk of chunks) {
-        const sourceLanguage = this.mapLanguageCode(options.sourceLanguage || 'pt');
-        const targetLanguage = this.mapLanguageCode(options.targetLanguage);
+      console.log(`TranslationService: Traduzindo de ${sourceLanguage} para ${targetLanguage}`);
 
-        console.log(`TranslationService: Traduzindo chunk de ${sourceLanguage} para ${targetLanguage}`);
+      const prompt = `You are a professional translator. Translate the following text from ${sourceLanguage} to ${targetLanguage}. 
 
-        const response: ReversoTranslationResponse = await new Promise((resolve, reject) => {
-          this.reverso.getTranslation(chunk, sourceLanguage, targetLanguage, (err: any, result: any) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(result);
-            }
-          });
-        });
+IMPORTANT INSTRUCTIONS:
+- Only return the translated text, nothing else
+- Maintain the original meaning and tone
+- Do not add explanations, comments, or metadata
+- Preserve formatting and punctuation
+- If you cannot translate, return the original text
 
-        console.log('===> ', response);
-        
-        translatedChunks.push(response.translations?.[0] || chunk);
+Text to translate:
+"${text}"
 
-        // Pequena pausa para evitar rate limiting
-        await this.delay(100);
+Translation:`;
+
+      const response = await this.ollama.generate({
+        model: 'llama3.1:8b',
+        prompt: prompt,
+        stream: false,
+        options: {
+          temperature: 0.3,
+          top_p: 0.9,
+          num_predict: 512
+        }
+      });
+
+      let translatedText = response.response.trim();
+      
+      // Remover aspas extras se existirem
+      if (translatedText.startsWith('"') && translatedText.endsWith('"')) {
+        translatedText = translatedText.slice(1, -1);
       }
 
-      return translatedChunks.join(' ');
+      return translatedText || text;
 
     } catch (error) {
       console.error('TranslationService: Erro ao traduzir texto:', error);
-      throw error;
+      
+      // Em caso de erro, retornar o texto original
+      console.warn('TranslationService: Retornando texto original devido ao erro');
+      return text;
     }
   }
 
@@ -145,6 +158,8 @@ export class TranslationService {
   }>> {
     const translatedSegments = [];
 
+    console.log(`TranslationService: Traduzindo ${segments.length} segmentos`);
+
     for (const segment of segments) {
       if (segment.text && segment.text.trim()) {
         try {
@@ -158,8 +173,8 @@ export class TranslationService {
             translatedText
           });
 
-          // Pausa entre segmentos
-          await this.delay(50);
+          // Pausa entre segmentos para não sobrecarregar o Ollama
+          await this.delay(200);
 
         } catch (error) {
           console.warn(`TranslationService: Erro ao traduzir segmento ${segment.id}:`, error);
@@ -180,68 +195,9 @@ export class TranslationService {
   }
 
   /**
-   * Divide texto em chunks menores
+   * Converte código de idioma para nome completo
    */
-  private splitTextIntoChunks(text: string, maxLength: number): string[] {
-    if (text.length <= maxLength) {
-      return [text];
-    }
-
-    const chunks: string[] = [];
-    const sentences = text.split(/[.!?]+/);
-    let currentChunk = '';
-
-    for (const sentence of sentences) {
-      const trimmedSentence = sentence.trim();
-      if (!trimmedSentence) continue;
-
-      const testChunk = currentChunk ? `${currentChunk}. ${trimmedSentence}` : trimmedSentence;
-
-      if (testChunk.length <= maxLength) {
-        currentChunk = testChunk;
-      } else {
-        if (currentChunk) {
-          chunks.push(currentChunk);
-        }
-        
-        // Se a sentença sozinha é muito grande, dividir por palavras
-        if (trimmedSentence.length > maxLength) {
-          const words = trimmedSentence.split(' ');
-          let wordChunk = '';
-          
-          for (const word of words) {
-            const testWordChunk = wordChunk ? `${wordChunk} ${word}` : word;
-            
-            if (testWordChunk.length <= maxLength) {
-              wordChunk = testWordChunk;
-            } else {
-              if (wordChunk) {
-                chunks.push(wordChunk);
-              }
-              wordChunk = word;
-            }
-          }
-          
-          if (wordChunk) {
-            currentChunk = wordChunk;
-          }
-        } else {
-          currentChunk = trimmedSentence;
-        }
-      }
-    }
-
-    if (currentChunk) {
-      chunks.push(currentChunk);
-    }
-
-    return chunks;
-  }
-
-  /**
-   * Mapeia códigos de idioma para nomes aceitos pela API Reverso
-   */
-  private mapLanguageCode(code: string): string {
+  private getLanguageName(code: string): string {
     const lowerCode = code.toLowerCase();
     
     if (this.supportedLanguages[lowerCode as keyof typeof this.supportedLanguages]) {
@@ -252,23 +208,23 @@ export class TranslationService {
     switch (lowerCode) {
       case 'pt-br':
       case 'pt_br':
-        return 'portuguese';
+        return 'Português';
       case 'en-us':
       case 'en_us':
       case 'en-gb':
       case 'en_gb':
-        return 'english';
+        return 'English';
       case 'es-es':
       case 'es_es':
-        return 'spanish';
+        return 'Español';
       case 'zh-cn':
       case 'zh_cn':
       case 'zh-tw':
       case 'zh_tw':
-        return 'chinese';
+        return '中文';
       default:
-        console.warn(`TranslationService: Idioma não mapeado: ${code}, usando 'english' como fallback`);
-        return 'english';
+        console.warn(`TranslationService: Idioma não mapeado: ${code}, usando 'English' como fallback`);
+        return 'English';
     }
   }
 

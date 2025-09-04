@@ -1042,7 +1042,7 @@ function generatePlaygroundHTML(): string {
         
         <div class="tab-content" id="tab-translation">
           <div class="translation-controls">
-            <h4>🌐 Traduzir Transcrição</h4>
+            <h4>🌐 Traduzir Transcrição com Ollama</h4>
             <div class="translation-options">
               <label for="target-language">Traduzir para:</label>
               <select id="target-language">
@@ -1068,7 +1068,10 @@ function generatePlaygroundHTML(): string {
                 <option value="he">🇮🇱 Hebraico</option>
                 <option value="hi">🇮🇳 Hindi</option>
               </select>
-              <button id="translate-btn" class="action-btn primary">🚀 Traduzir</button>
+              <button id="translate-btn" class="action-btn primary">🤖 Traduzir com LLama3.1</button>
+            </div>
+            <div style="margin-top: 10px; padding: 10px; background: #e8f4fd; border-radius: 6px; font-size: 0.9rem; color: #1976d2;">
+              <strong>💡 Powered by Ollama:</strong> Tradução usando o modelo LLama3.1 no servidor caucaia.saudehd.com.br:11434.
             </div>
           </div>
           <div class="translation-result" id="translation-output" style="display: none;">
@@ -1629,7 +1632,7 @@ function generatePlaygroundHTML(): string {
       }
       
       translateBtn.disabled = true;
-      translateBtn.innerHTML = '⏳ Traduzindo...';
+      translateBtn.innerHTML = '🤖 Traduzindo com Ollama...';
       
       try {
         const response = await fetch('/translate/transcription', {
@@ -1674,7 +1677,7 @@ function generatePlaygroundHTML(): string {
         alert('Erro na tradução: ' + error.message);
       } finally {
         translateBtn.disabled = false;
-        translateBtn.innerHTML = '🚀 Traduzir';
+        translateBtn.innerHTML = '🤖 Traduzir com LLama3.1';
       }
     });
     
