@@ -1804,10 +1804,10 @@ function generatePlaygroundHTML(): string {
           text: currentTranslation.segments[index]?.translatedText || segment.text
         }));
 
-        // Adicionar segmentos traduzidos ao FormData
-        formData.append('translatedSegments', JSON.stringify(translatedSegments));
+        // Enviar segmentos traduzidos via query parameter (URL encoded)
+        const translatedSegmentsParam = encodeURIComponent(JSON.stringify(translatedSegments));
         
-        const response = await fetch('/video-with-translated-subtitles?hardcoded=true&fontSize=' + fontSize + '&fontColor=%23ffffff&backgroundColor=%23000000&borderWidth=' + borderWidth + '&marginVertical=' + marginVertical, {
+        const response = await fetch(\`/video-with-translated-subtitles?hardcoded=true&fontSize=\${fontSize}&fontColor=%23ffffff&backgroundColor=%23000000&borderWidth=\${borderWidth}&marginVertical=\${marginVertical}&translatedSegments=\${translatedSegmentsParam}\`, {
           method: 'POST',
           body: formData
         });

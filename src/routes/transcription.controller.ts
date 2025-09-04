@@ -164,7 +164,7 @@ export class TranscriptionController {
         } as ErrorResponse);
       }
 
-      // Obter segmentos traduzidos dos query parameters (método mais confiável)
+      // Obter segmentos traduzidos dos query parameters
       const query = req.query as any;
       let translatedSegments: any[] | null = null;
 
@@ -181,18 +181,11 @@ export class TranscriptionController {
         }
       }
 
-      // Se não tem segmentos na query, criar segmentos de exemplo para teste
       if (!translatedSegments || !Array.isArray(translatedSegments) || translatedSegments.length === 0) {
-        req.log.warn('TranscriptionController: Nenhum segmento traduzido encontrado, criando segmentos de teste');
-        
-        // Para teste, vamos criar segmentos simples
-        translatedSegments = [
-          { start: 0, end: 5, text: "Este é um teste de legenda traduzida" },
-          { start: 5, end: 10, text: "Os segmentos serão substituídos pelos reais" },
-          { start: 10, end: 15, text: "quando os dados forem enviados corretamente" }
-        ];
-        
-        req.log.info(`TranscriptionController: Usando ${translatedSegments.length} segmentos de teste`);
+        return reply.code(400).send({
+          error: 'Segmentos traduzidos são obrigatórios',
+          detail: 'Envie os segmentos traduzidos via query parameter "translatedSegments" (JSON URL-encoded)'
+        } as ErrorResponse);
       }
 
       const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
