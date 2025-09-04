@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { TranslationOptions } from '../services/translation.service.js';
 import { TranslationService } from '../services/translation.service.js';
 import type { ErrorResponse, TranscriptionResponse } from '../types/index.js';
-import type { TranslationOptions } from '../services/translation.service.js';
 
 export class TranslationController {
   private translationService: TranslationService;

@@ -149,15 +149,22 @@ export class TranscriptionController {
       // Processar multipart para obter arquivo e segmentos
       let fileUpload: FileUpload | null = null;
       let translatedSegments: any[] | null = null;
+      let partsProcessed = 0;
 
       // Usar abordagem que processa todas as partes do multipart
+      req.log.info('TranscriptionController: Iniciando processamento multipart...');
       const parts = (req as any).parts();
       
       for await (const part of parts) {
+        partsProcessed++;
+        req.log.info(`TranscriptionController: Processando parte ${partsProcessed} - tipo: ${part.type}`);
+        
         if (part.type === 'file') {
           fileUpload = part as FileUpload;
-          req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename}`);
+          req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
         } else if (part.type === 'field') {
+          req.log.info(`TranscriptionController: Campo recebido - ${part.fieldname}`);
+          
           if (part.fieldname === 'translatedSegments') {
             try {
               // Ler o valor do campo
@@ -175,7 +182,15 @@ export class TranscriptionController {
             }
           }
         }
+        
+        // Evitar loop infinito
+        if (partsProcessed > 10) {
+          req.log.warn('TranscriptionController: Limite de partes atingido, parando');
+          break;
+        }
       }
+
+      req.log.info(`TranscriptionController: Multipart processado - ${partsProcessed} partes, arquivo: ${!!fileUpload}, segmentos: ${!!translatedSegments}`);
 
       if (!fileUpload) {
         return reply.code(400).send({

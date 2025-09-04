@@ -33,7 +33,10 @@ async function registerPlugins(app: ReturnType<typeof Fastify>) {
   await app.register(multipart, {
     limits: { 
       files: config.maxFiles, 
-      fileSize: config.maxFileSize 
+      fileSize: config.maxFileSize,
+      fieldSize: config.maxFieldSize, // Limite para campos individuais
+      fieldsSize: config.maxFieldsSize, // Limite total para todos os campos
+      fields: 10 // Máximo de campos permitidos
     }
   });
 

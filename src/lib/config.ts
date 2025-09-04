@@ -16,6 +16,8 @@ export const config = {
   // Upload limits
   maxFileSize: Number(process.env.MAX_FILE_SIZE) || 200 * 1024 * 1024, // 200MB padrão
   maxFiles: 1,
+  maxFieldSize: 10 * 1024 * 1024, // 10MB para campos de texto (segmentos traduzidos)
+  maxFieldsSize: 20 * 1024 * 1024, // 20MB total para todos os campos
   
   // Timeouts
   whisperTimeout: 300000, // 300 segundos (5 minutos)
