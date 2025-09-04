@@ -1,6 +1,6 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TranscriptionService } from '../services/transcription.service.js';
-import type { FileUpload, TranscriptionContext, ErrorResponse } from '../types/index.js';
+import type { ErrorResponse, FileUpload, TranscriptionContext } from '../types/index.js';
 
 export class TranscriptionController {
   private transcriptionService: TranscriptionService;
@@ -145,8 +145,29 @@ export class TranscriptionController {
     try {
       req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
 
-      // Usar método simples sem multipart complexo
-      const fileUpload = await (req as any).file() as FileUpload;
+      // Processar multipart manualmente para obter arquivo e campos
+      let fileUpload: FileUpload | null = null;
+      let translatedSegments: any[] | null = null;
+
+      const parts = (req as any).parts();
+      
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          fileUpload = part as FileUpload;
+          req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename}`);
+        } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
+          try {
+            translatedSegments = JSON.parse(part.value);
+            req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos recebidos`);
+            // Log do primeiro segmento para debug
+            if (translatedSegments && translatedSegments.length > 0) {
+              req.log.info(`TranscriptionController: Primeiro segmento traduzido: "${translatedSegments[0].text}"`);
+            }
+          } catch (error) {
+            req.log.error(`Erro ao fazer parse dos segmentos traduzidos: ${error}`);
+          }
+        }
+      }
 
       if (!fileUpload) {
         return reply.code(400).send({
@@ -154,7 +175,6 @@ export class TranscriptionController {
         } as ErrorResponse);
       }
 
-      // Validar que é um arquivo de vídeo
       if (!this.isValidVideoFile(fileUpload)) {
         return reply.code(400).send({
           error: 'Tipo de arquivo inválido. Envie um arquivo de vídeo.',
@@ -162,11 +182,12 @@ export class TranscriptionController {
         } as ErrorResponse);
       }
 
-      req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
-
-      // Por enquanto, usar o método normal para testar se funciona
-      // TODO: Implementar lógica para segmentos traduzidos
-      const context = undefined;
+      if (!translatedSegments || !Array.isArray(translatedSegments) || translatedSegments.length === 0) {
+        return reply.code(400).send({
+          error: 'Segmentos traduzidos são obrigatórios',
+          detail: 'O campo translatedSegments deve ser um array de segmentos traduzidos'
+        } as ErrorResponse);
+      }
 
       // Obter parâmetros da query
       const query = req.query as any;
@@ -183,12 +204,15 @@ export class TranscriptionController {
         marginVertical: parseInt(query.marginVertical) || 20
       };
 
-      // Usar o método existente temporariamente
-      const result = await this.transcriptionService.transcribeAndAddSubtitlesToVideo(
+      // Usar o método que gera vídeo com segmentos customizados
+      const result = await this.transcriptionService.generateVideoWithCustomSegments(
         fileUpload,
+        { 
+          text: translatedSegments.map(s => s.text).join(' '), 
+          segments: translatedSegments 
+        },
         subtitleStyle,
-        hardcodedSubs,
-        context
+        hardcodedSubs
       );
 
       if (!result.success) {
@@ -200,7 +224,7 @@ export class TranscriptionController {
 
       req.log.info('TranscriptionController: Vídeo com legendas traduzidas gerado com sucesso');
 
-      // Definir headers para download do vídeo
+      // Headers para download
       const fileName = fileUpload.filename 
         ? fileUpload.filename.replace(/\.[^/.]+$/, '_with_translated_subtitles.mp4')
         : 'video_with_translated_subtitles.mp4';
@@ -208,7 +232,6 @@ export class TranscriptionController {
       reply.header('Content-Type', 'video/mp4');
       reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
       
-      // Enviar o buffer do vídeo
       return reply.send(result.videoBuffer);
 
     } catch (error: any) {
