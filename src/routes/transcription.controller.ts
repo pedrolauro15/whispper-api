@@ -157,8 +157,8 @@ export class TranscriptionController {
       
       for await (const part of parts) {
         partsProcessed++;
-        req.log.info(`TranscriptionController: Processando parte ${partsProcessed} - tipo: ${part.type}`);
-        
+        req.log.info(`TranscriptionController: Processando parte ${partsProcessed}/${parts.length} - tipo: ${part.type}`);
+
         if (part.type === 'file') {
           fileUpload = part as FileUpload;
           req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
