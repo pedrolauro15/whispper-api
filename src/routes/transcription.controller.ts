@@ -154,6 +154,9 @@ export class TranscriptionController {
       // Usar abordagem que processa todas as partes do multipart
       req.log.info('TranscriptionController: Iniciando processamento multipart...');
       const parts = (req as any).parts();
+
+      console.log('==> ', parts);
+      
       
       for await (const part of parts) {
         partsProcessed++;
