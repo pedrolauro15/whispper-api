@@ -146,28 +146,36 @@ export class TranscriptionController {
     try {
       req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
 
-      // Processar multipart manualmente para obter arquivo e campos
+      // Processar multipart de forma simples
       let fileUpload: FileUpload | null = null;
       let translatedSegments: any[] | null = null;
 
-      const parts = (req as any).parts();
-      
-      for await (const part of parts) {
-        if (part.type === 'file') {
-          fileUpload = part as FileUpload;
-          req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename}`);
-        } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
-          try {
-            translatedSegments = JSON.parse(part.value);
-            req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos recebidos`);
-            // Log do primeiro segmento para debug
-            if (translatedSegments && translatedSegments.length > 0) {
-              req.log.info(`TranscriptionController: Primeiro segmento traduzido: "${translatedSegments[0].text}"`);
+      try {
+        // Tentar usar o método mais simples para obter campos e arquivo
+        const data = await (req as any).parseMultipart();
+        
+        // Buscar arquivo nos campos
+        for (const field of data) {
+          if (field.type === 'file') {
+            fileUpload = field;
+            req.log.info(`TranscriptionController: Arquivo recebido - ${field.filename}`);
+          } else if (field.fieldname === 'translatedSegments') {
+            try {
+              translatedSegments = JSON.parse(field.value);
+              req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos recebidos`);
+              if (translatedSegments && translatedSegments.length > 0) {
+                req.log.info(`TranscriptionController: Primeiro segmento traduzido: "${translatedSegments[0].text}"`);
+              }
+            } catch (parseError) {
+              req.log.error(`Erro ao fazer parse dos segmentos traduzidos: ${parseError}`);
             }
-          } catch (error) {
-            req.log.error(`Erro ao fazer parse dos segmentos traduzidos: ${error}`);
           }
         }
+      } catch (parseError) {
+        req.log.error(`Erro ao processar multipart: ${parseError}`);
+        // Fallback: tentar método alternativo
+        fileUpload = await (req as any).file() as FileUpload;
+        req.log.info('TranscriptionController: Usando método fallback para arquivo');
       }
 
       if (!fileUpload) {
@@ -204,6 +212,8 @@ export class TranscriptionController {
         borderColor: query.borderColor || '#000000',
         marginVertical: parseInt(query.marginVertical) || 20
       };
+
+      req.log.info('TranscriptionController: Iniciando processamento do vídeo com segmentos traduzidos');
 
       // Usar o método que gera vídeo com segmentos customizados
       const result = await this.transcriptionService.generateVideoWithCustomSegments(
