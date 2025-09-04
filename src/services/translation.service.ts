@@ -1,4 +1,4 @@
-import reverso from 'reverso-api';
+import Reverso from 'reverso-api';
 import type { TranscriptionResponse } from '../types/index.js';
 
 export interface TranslationOptions {
@@ -21,6 +21,11 @@ export interface TranslationResult {
 }
 
 export class TranslationService {
+  private reverso: Reverso;
+  
+  constructor() {
+    this.reverso = new Reverso();
+  }
   private readonly supportedLanguages = {
     'pt': 'portuguese',
     'en': 'english',
@@ -99,8 +104,17 @@ export class TranslationService {
 
         console.log(`TranslationService: Traduzindo chunk de ${sourceLanguage} para ${targetLanguage}`);
 
-        const response = await reverso(chunk, sourceLanguage, targetLanguage);
-        translatedChunks.push(response.text);
+        const response = await new Promise((resolve, reject) => {
+          this.reverso.getTranslation(chunk, sourceLanguage, targetLanguage, (err: any, result: any) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(result);
+            }
+          });
+        });
+
+        translatedChunks.push((response as any).translations?.[0] || chunk);
 
         // Pequena pausa para evitar rate limiting
         await this.delay(100);
