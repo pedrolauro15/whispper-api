@@ -168,8 +168,12 @@ export class TranscriptionController {
       const query = req.query as any;
       let translatedSegments: any[] | null = null;
 
+      req.log.info(`TranscriptionController: Query recebida:`, query);
+
       if (query.translatedSegments) {
         try {
+          req.log.info(`TranscriptionController: Segmentos brutos recebidos (primeiros 200 chars): ${query.translatedSegments.substring(0, 200)}...`);
+          
           translatedSegments = JSON.parse(decodeURIComponent(query.translatedSegments));
           req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos recebidos da query`);
           
@@ -178,6 +182,22 @@ export class TranscriptionController {
           }
         } catch (parseError) {
           req.log.error(`Erro ao fazer parse dos segmentos traduzidos da query: ${parseError}`);
+          req.log.error(`Dados brutos: ${query.translatedSegments}`);
+        }
+      } else {
+        req.log.warn('TranscriptionController: Campo translatedSegments não encontrado na query');
+        req.log.info(`TranscriptionController: Campos disponíveis na query: ${Object.keys(query).join(', ')}`);
+        
+        // Tentar obter dos headers como fallback
+        const bodySegments = req.headers['x-translated-segments'];
+        if (bodySegments) {
+          try {
+            req.log.info('TranscriptionController: Tentando obter segmentos dos headers');
+            translatedSegments = JSON.parse(decodeURIComponent(Array.isArray(bodySegments) ? bodySegments[0] : bodySegments));
+            req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos obtidos dos headers`);
+          } catch (headerError) {
+            req.log.error(`Erro ao fazer parse dos segmentos dos headers: ${headerError}`);
+          }
         }
       }
 
