@@ -232,7 +232,7 @@ export class TranscriptionController {
   }
 
   /**
-   * Gera vídeo com legendas traduzidas
+   * Gera vídeo com legendas traduzidas (reutilizando a função existente)
    */
   async generateVideoWithTranslatedSubtitles(req: FastifyRequest, reply: FastifyReply) {
     try {
@@ -288,6 +288,12 @@ export class TranscriptionController {
       req.log.info(`TranscriptionController: Vídeo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
       req.log.info(`TranscriptionController: ${translatedSegments.length} segmentos traduzidos recebidos`);
 
+      // Criar uma transcrição "fake" com os segmentos traduzidos para reutilizar a função existente
+      const fakeTranscription = {
+        text: translatedSegments.map(s => s.text).join(' '),
+        segments: translatedSegments
+      };
+
       // Obter parâmetros da query
       const query = req.query as any;
       const hardcodedSubs = query.hardcoded !== 'false'; // Default: true
@@ -303,10 +309,10 @@ export class TranscriptionController {
         marginVertical: parseInt(query.marginVertical) || 20 // Margem menor
       };
 
-      // Processar vídeo com legendas traduzidas
-      const result = await this.transcriptionService.generateVideoWithTranslatedSubtitles(
+      // Reutilizar a função existente passando a transcrição traduzida
+      const result = await this.transcriptionService.generateVideoFromExistingTranscription(
         fileUpload,
-        translatedSegments,
+        fakeTranscription,
         subtitleStyle,
         hardcodedSubs
       );

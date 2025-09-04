@@ -126,6 +126,87 @@ export class TranscriptionService {
   }
 
   /**
+   * Gera vídeo com legendas usando uma transcrição existente (otimizado para legendas traduzidas)
+   */
+  async generateVideoFromExistingTranscription(
+    fileUpload: FileUpload,
+    transcription: any,
+    subtitleStyle?: SubtitleStyle,
+    hardcodedSubs: boolean = true
+  ): Promise<VideoWithSubtitlesResponse> {
+    let tmpVideoPath: string | null = null;
+    let subtitlesPath: string | null = null;
+    let outputVideoPath: string | null = null;
+
+    try {
+      console.log('🎬 TranscriptionService: Processando vídeo com transcrição existente...');
+      
+      // 1. Processar arquivo de vídeo
+      tmpVideoPath = await this.fileService.processUploadedFile(fileUpload);
+      console.log('✅ TranscriptionService: Arquivo de vídeo processado');
+
+      // 2. Gerar arquivo de legendas SRT (pula a transcrição)
+      console.log('📝 TranscriptionService: Gerando arquivo SRT...');
+      subtitlesPath = await this.generateSRTFile(transcription.segments);
+      console.log('✅ TranscriptionService: Arquivo SRT gerado');
+
+      // 3. Gerar vídeo com legendas usando FFmpeg
+      console.log('🎥 TranscriptionService: Iniciando processamento FFmpeg...');
+      const videoResult = hardcodedSubs 
+        ? await this.videoService.addHardcodedSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath,
+            subtitleStyle
+          })
+        : await this.videoService.addSoftSubtitles({
+            inputVideoPath: tmpVideoPath,
+            subtitlesPath
+          });
+      console.log('✅ TranscriptionService: Processamento FFmpeg concluído');
+
+      if (!videoResult.success) {
+        throw new Error(videoResult.message);
+      }
+
+      outputVideoPath = videoResult.outputPath;
+
+      // 4. Ler arquivo de vídeo como buffer
+      console.log('📹 TranscriptionService: Lendo buffer do vídeo final...');
+      const videoBuffer = await fs.readFile(outputVideoPath);
+      console.log('✅ TranscriptionService: Vídeo com legendas concluído!');
+
+      return {
+        transcription,
+        videoBuffer,
+        videoPath: outputVideoPath,
+        subtitlesPath,
+        success: true,
+        message: 'Vídeo com legendas gerado com sucesso'
+      };
+
+    } catch (error) {
+      return {
+        transcription: null,
+        videoBuffer: null,
+        videoPath: null,
+        subtitlesPath: null,
+        success: false,
+        message: `Erro ao processar vídeo: ${error instanceof Error ? error.message : String(error)}`
+      };
+
+    } finally {
+      // Limpeza (mantém o vídeo final temporariamente para download)
+      if (tmpVideoPath) {
+        await this.fileService.cleanup(tmpVideoPath);
+      }
+      if (subtitlesPath) {
+        await this.videoService.cleanup(subtitlesPath);
+      }
+      // outputVideoPath será limpo depois do download
+    }
+  }
+
+  /**
    * Processa um vídeo e gera versão com legendas
    */
   async transcribeAndAddSubtitlesToVideo(
