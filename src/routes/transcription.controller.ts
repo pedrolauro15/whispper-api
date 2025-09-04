@@ -242,14 +242,19 @@ export class TranscriptionController {
       let translatedSegments: any[] | null = null;
 
       // Processar multipart para obter arquivo e segmentos traduzidos
+      req.log.info('TranscriptionController: Iniciando processamento multipart...');
       const parts = (req as any).parts();
       
       for await (const part of parts) {
+        req.log.info(`TranscriptionController: Processando part - type: ${part.type}, fieldname: ${part.fieldname}`);
+        
         if (part.type === 'file' && !fileUpload) {
           fileUpload = part as FileUpload;
+          req.log.info(`TranscriptionController: Arquivo encontrado - ${fileUpload.filename}`);
         } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
           try {
             translatedSegments = JSON.parse(part.value);
+            req.log.info(`TranscriptionController: Segmentos traduzidos parsed - ${translatedSegments?.length || 0} segmentos`);
           } catch (error) {
             req.log.error(`Erro ao fazer parse dos segmentos traduzidos: ${error}`);
           }
@@ -257,11 +262,15 @@ export class TranscriptionController {
         
         // Sair do loop se já temos ambos
         if (fileUpload && translatedSegments) {
+          req.log.info('TranscriptionController: Ambos os dados obtidos, saindo do loop');
           break;
         }
       }
+      
+      req.log.info('TranscriptionController: Processamento multipart concluído');
 
       if (!fileUpload) {
+        req.log.error('TranscriptionController: Nenhum arquivo encontrado');
         return reply.code(400).send({
           error: 'Nenhum arquivo enviado'
         } as ErrorResponse);
