@@ -1653,7 +1653,7 @@ function generatePlaygroundHTML(): string {
         }
         
         // Mostrar resultado da tradução
-        translationText.innerHTML = result.text;
+        translationText.innerHTML = result.translatedText;
         
         // Mostrar segmentos traduzidos
         if (result.segments && result.segments.length > 0) {
@@ -1662,7 +1662,7 @@ function generatePlaygroundHTML(): string {
               <div class="segment-header">
                 <span class="segment-time">\${formatTime(segment.start)} → \${formatTime(segment.end)}</span>
               </div>
-              <div class="segment-text">\${segment.text}</div>
+              <div class="segment-text">\${segment.translatedText}</div>
             </div>
           \`).join('');
         } else {
