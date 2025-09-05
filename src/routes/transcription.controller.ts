@@ -149,67 +149,95 @@ export class TranscriptionController {
       let fileUpload: FileUpload | null = null;
       let translatedSegments: any[] = [];
 
-      // Estratégia 1: Tentar processar todas as partes juntas
-      req.log.info('TranscriptionController: Estratégia 1 - Processando multipart completo...');
+      // Estratégia 1: Tentar processar todas as partes com timeout por parte
+      req.log.info('TranscriptionController: Estratégia 1 - Processando multipart com timeout...');
       
       try {
         const parts = (req as any).parts();
         let partCount = 0;
         
-        for await (const part of parts) {
-          partCount++;
-          req.log.info(`TranscriptionController: Parte ${partCount} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
+        // Processar com timeout mais agressivo por parte
+        const processAllParts = async () => {
+          const partPromises: Promise<void>[] = [];
           
-          if (part.type === 'file') {
-            fileUpload = part as FileUpload;
-            req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
-          } else if (part.type === 'field') {
-            req.log.info(`TranscriptionController: Campo "${part.fieldname}" - valor: ${part.value?.length || 0} chars`);
+          // Usar async iterator com timeout
+          const iterator = parts[Symbol.asyncIterator]();
+          
+          while (partCount < 50) {
+            partCount++;
+            req.log.info(`TranscriptionController: Tentando processar parte ${partCount}...`);
             
-            // Log TODOS os campos para debug
-            req.log.info(`TranscriptionController: 🔍 CAMPO DEBUG - Nome: "${part.fieldname}", Tipo: ${typeof part.value}, Conteúdo: "${part.value?.substring(0, 100)}..."`);
-            
-            if (part.fieldname === 'translatedSegments') {
-              try {
-                const value = part.value;
-                req.log.info(`TranscriptionController: ✅ Campo translatedSegments encontrado (${value?.length || 0} chars)`);
+            try {
+              // Timeout individual por parte (2 segundos)
+              const partPromise = Promise.race([
+                iterator.next(),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error(`Timeout parte ${partCount}`)), 2000)
+                )
+              ]);
+              
+              const { value: part, done } = await partPromise;
+              
+              if (done) {
+                req.log.info(`TranscriptionController: ✅ Fim do iterator na parte ${partCount}`);
+                break;
+              }
+              
+              req.log.info(`TranscriptionController: Parte ${partCount} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
+              
+              if (part.type === 'file') {
+                fileUpload = part as FileUpload;
+                req.log.info(`TranscriptionController: ✅ Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
+              } else if (part.type === 'field') {
+                req.log.info(`TranscriptionController: Campo "${part.fieldname}" - valor: ${part.value?.length || 0} chars`);
+                req.log.info(`TranscriptionController: 🔍 CAMPO DEBUG - Nome: "${part.fieldname}", Tipo: ${typeof part.value}, Conteúdo: "${part.value?.substring(0, 100)}..."`);
                 
-                if (value) {
-                  // Log do início dos dados para debug
-                  req.log.info(`TranscriptionController: Dados iniciais: ${value.substring(0, 200)}...`);
-                  
-                  translatedSegments = JSON.parse(value);
-                  req.log.info(`TranscriptionController: ✅ ${translatedSegments?.length || 0} segmentos processados com sucesso`);
-                  
-                  // Log do primeiro segmento para validação
-                  if (translatedSegments.length > 0) {
-                    req.log.info(`TranscriptionController: Primeiro segmento: ${JSON.stringify(translatedSegments[0])}`);
+                if (part.fieldname === 'translatedSegments') {
+                  try {
+                    const value = part.value;
+                    req.log.info(`TranscriptionController: ✅ Campo translatedSegments encontrado (${value?.length || 0} chars)`);
+                    
+                    if (value) {
+                      req.log.info(`TranscriptionController: Dados iniciais: ${value.substring(0, 200)}...`);
+                      translatedSegments = JSON.parse(value);
+                      req.log.info(`TranscriptionController: ✅ ${translatedSegments?.length || 0} segmentos processados com sucesso`);
+                      
+                      if (translatedSegments.length > 0) {
+                        req.log.info(`TranscriptionController: Primeiro segmento: ${JSON.stringify(translatedSegments[0])}`);
+                      }
+                    } else {
+                      req.log.warn('TranscriptionController: ⚠️ Campo translatedSegments vazio');
+                    }
+                  } catch (parseError) {
+                    req.log.error(`TranscriptionController: ❌ Erro ao processar segmentos: ${parseError}`);
+                    req.log.error(`TranscriptionController: Dados problemáticos: ${part.value?.substring(0, 200)}...`);
                   }
                 } else {
-                  req.log.warn('TranscriptionController: ⚠️ Campo translatedSegments vazio');
+                  req.log.info(`TranscriptionController: 📝 Outro campo detectado: "${part.fieldname}"`);
                 }
-              } catch (parseError) {
-                req.log.error(`TranscriptionController: ❌ Erro ao processar segmentos: ${parseError}`);
-                req.log.error(`TranscriptionController: Dados problemáticos: ${part.value?.substring(0, 200)}...`);
               }
-            } else {
-              // Log de outros campos para debug completo
-              req.log.info(`TranscriptionController: 📝 Outro campo detectado: "${part.fieldname}"`);
+              
+              // Se já temos tudo, parar
+              if (fileUpload && translatedSegments.length > 0) {
+                req.log.info('TranscriptionController: ✅ Dados completos, finalizando processamento');
+                break;
+              }
+              
+            } catch (partError) {
+              req.log.error(`TranscriptionController: ⚠️ Erro/timeout na parte ${partCount}: ${partError}`);
+              // Continuar tentando outras partes
+              continue;
             }
           }
-          
-          // Limite de segurança aumentado
-          if (partCount > 50) {
-            req.log.warn('TranscriptionController: Limite de partes atingido (50)');
-            break;
-          }
-          
-          // Não parar early - processar TODAS as partes para debug
-          // if (fileUpload && translatedSegments.length > 0) {
-          //   req.log.info('TranscriptionController: ✅ Dados completos obtidos, parando processamento early');
-          //   break;
-          // }
-        }
+        };
+        
+        // Timeout geral de 10 segundos
+        await Promise.race([
+          processAllParts(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout geral processamento')), 10000)
+          )
+        ]);
         
         req.log.info(`TranscriptionController: Estratégia 1 concluída - arquivo: ${!!fileUpload}, segmentos: ${translatedSegments.length}`);
         
