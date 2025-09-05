@@ -166,6 +166,9 @@ export class TranscriptionController {
           } else if (part.type === 'field') {
             req.log.info(`TranscriptionController: Campo "${part.fieldname}" - valor: ${part.value?.length || 0} chars`);
             
+            // Log TODOS os campos para debug
+            req.log.info(`TranscriptionController: 🔍 CAMPO DEBUG - Nome: "${part.fieldname}", Tipo: ${typeof part.value}, Conteúdo: "${part.value?.substring(0, 100)}..."`);
+            
             if (part.fieldname === 'translatedSegments') {
               try {
                 const value = part.value;
@@ -189,23 +192,23 @@ export class TranscriptionController {
                 req.log.error(`TranscriptionController: ❌ Erro ao processar segmentos: ${parseError}`);
                 req.log.error(`TranscriptionController: Dados problemáticos: ${part.value?.substring(0, 200)}...`);
               }
-            } else if (part.fieldname === 'video' && !fileUpload) {
-              // Caso o arquivo seja enviado como campo 'video' em vez de file
-              req.log.info('TranscriptionController: Campo "video" detectado - pode ser o arquivo');
+            } else {
+              // Log de outros campos para debug completo
+              req.log.info(`TranscriptionController: 📝 Outro campo detectado: "${part.fieldname}"`);
             }
           }
           
-          // Limite de segurança
-          if (partCount > 20) {
-            req.log.warn('TranscriptionController: Limite de partes atingido');
+          // Limite de segurança aumentado
+          if (partCount > 50) {
+            req.log.warn('TranscriptionController: Limite de partes atingido (50)');
             break;
           }
           
-          // Parar early se já temos tudo que precisamos
-          if (fileUpload && translatedSegments.length > 0) {
-            req.log.info('TranscriptionController: ✅ Dados completos obtidos, parando processamento early');
-            break;
-          }
+          // Não parar early - processar TODAS as partes para debug
+          // if (fileUpload && translatedSegments.length > 0) {
+          //   req.log.info('TranscriptionController: ✅ Dados completos obtidos, parando processamento early');
+          //   break;
+          // }
         }
         
         req.log.info(`TranscriptionController: Estratégia 1 concluída - arquivo: ${!!fileUpload}, segmentos: ${translatedSegments.length}`);
