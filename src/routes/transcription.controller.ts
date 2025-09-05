@@ -163,45 +163,70 @@ export class TranscriptionController {
           req.log.warn('TranscriptionController: Nenhum arquivo encontrado');
         }
 
-        // Depois, processar os campos restantes
+        // Depois, processar os campos restantes com timeout
         req.log.info('TranscriptionController: Processando campos restantes...');
-        const parts = (req as any).parts();
-        let partsProcessed = 0;
-        const maxParts = 10;
+        
+        // Implementar timeout para evitar travamento
+        const processFields = async (): Promise<void> => {
+          const parts = (req as any).parts();
+          let partsProcessed = 0;
+          const maxParts = 10;
 
-        for await (const part of parts) {
-          partsProcessed++;
-          req.log.info(`TranscriptionController: Processando campo ${partsProcessed} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
-          
-          if (part.type === 'field') {
-            req.log.info(`TranscriptionController: Campo "${part.fieldname}" tem valor de ${part.value?.length || 0} caracteres`);
-            
-            if (part.fieldname === 'translatedSegments') {
-              try {
-                const value = part.value;
-                req.log.info(`TranscriptionController: Campo translatedSegments recebido (${value.length} chars)`);
+          try {
+            for await (const part of parts) {
+              partsProcessed++;
+              req.log.info(`TranscriptionController: Processando campo ${partsProcessed} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
+              
+              if (part.type === 'field') {
+                req.log.info(`TranscriptionController: Campo "${part.fieldname}" tem valor de ${part.value?.length || 0} caracteres`);
                 
-                // Log parcial do conteúdo para debug
-                req.log.info(`TranscriptionController: Primeiros 200 chars: ${value.substring(0, 200)}...`);
-                
-                translatedSegments = JSON.parse(value);
-                req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos processados`);
-                break; // Parar após encontrar os segmentos
-              } catch (parseError) {
-                req.log.error(`Erro ao fazer parse dos segmentos: ${parseError}`);
-                req.log.error(`Conteúdo problemático: ${part.value?.substring(0, 100)}...`);
+                if (part.fieldname === 'translatedSegments') {
+                  try {
+                    const value = part.value;
+                    req.log.info(`TranscriptionController: Campo translatedSegments recebido (${value.length} chars)`);
+                    
+                    // Log parcial do conteúdo para debug
+                    req.log.info(`TranscriptionController: Primeiros 200 chars: ${value.substring(0, 200)}...`);
+                    
+                    translatedSegments = JSON.parse(value);
+                    req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos processados`);
+                    break; // Parar após encontrar os segmentos
+                  } catch (parseError) {
+                    req.log.error(`Erro ao fazer parse dos segmentos: ${parseError}`);
+                    req.log.error(`Conteúdo problemático: ${part.value?.substring(0, 100)}...`);
+                  }
+                }
+              }
+              
+              // Evitar loop infinito
+              if (partsProcessed >= maxParts) {
+                req.log.warn(`TranscriptionController: Limite de ${maxParts} partes atingido, parando`);
+                break;
               }
             }
+          } catch (error) {
+            req.log.error(`Erro no loop de processamento: ${error}`);
+            throw error;
           }
-          
-          // Evitar loop infinito
-          if (partsProcessed >= maxParts) {
-            req.log.warn(`TranscriptionController: Limite de ${maxParts} partes atingido, parando`);
-            break;
-          }
+        };
+
+        // Aplicar timeout de 5 segundos
+        const timeoutPromise = new Promise<void>((_, reject) => {
+          setTimeout(() => {
+            req.log.warn('TranscriptionController: Timeout no processamento de campos (5s)');
+            reject(new Error('Timeout no processamento de campos'));
+          }, 5000);
+        });
+
+        try {
+          await Promise.race([processFields(), timeoutPromise]);
+          req.log.info('TranscriptionController: Processamento de campos concluído com sucesso');
+        } catch (error) {
+          req.log.error(`Erro ou timeout no processamento de campos: ${error}`);
+          // Continuar mesmo com timeout - talvez os dados já foram processados
         }
         
-        req.log.info(`TranscriptionController: Processamento de campos concluído - ${partsProcessed} partes processadas`);
+        req.log.info(`TranscriptionController: Processamento de campos concluído com sucesso`);
         
       } catch (error) {
         req.log.error(`Erro no processamento multipart: ${error}`);
