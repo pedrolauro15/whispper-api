@@ -146,84 +146,66 @@ export class TranscriptionController {
     try {
       req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
 
-      // Nova abordagem: coletar todas as partes em paralelo com timeout
+      // Abordagem simplificada: processar partes sequencialmente
       let fileUpload: FileUpload | null = null;
       let translatedSegments: any[] = [];
 
       req.log.info('TranscriptionController: Coletando partes do multipart...');
       
-      const collectParts = new Promise<void>((resolve, reject) => {
-        let partsProcessed = 0;
-        const maxParts = 5;
-        
+      try {
+        // Primeiro, tentar obter o arquivo
+        req.log.info('TranscriptionController: Tentando obter arquivo...');
+        const filePart = await (req as any).file();
+        if (filePart) {
+          fileUpload = filePart;
+          req.log.info(`TranscriptionController: Arquivo recebido - ${filePart.filename} (${filePart.mimetype})`);
+        } else {
+          req.log.warn('TranscriptionController: Nenhum arquivo encontrado');
+        }
+
+        // Depois, processar os campos restantes
+        req.log.info('TranscriptionController: Processando campos restantes...');
         const parts = (req as any).parts();
-        
-        const processNextPart = async () => {
-          try {
-            const { value, done } = await parts.next();
+        let partsProcessed = 0;
+        const maxParts = 10;
+
+        for await (const part of parts) {
+          partsProcessed++;
+          req.log.info(`TranscriptionController: Processando campo ${partsProcessed} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
+          
+          if (part.type === 'field') {
+            req.log.info(`TranscriptionController: Campo "${part.fieldname}" tem valor de ${part.value?.length || 0} caracteres`);
             
-            if (done) {
-              req.log.info('TranscriptionController: Fim das partes do multipart');
-              resolve();
-              return;
-            }
-            
-            const part = value;
-            partsProcessed++;
-            
-            req.log.info(`TranscriptionController: Processando parte ${partsProcessed} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
-            
-            if (part.type === 'file') {
-              fileUpload = part as FileUpload;
-              req.log.info(`TranscriptionController: Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
-            } else if (part.type === 'field' && part.fieldname === 'translatedSegments') {
+            if (part.fieldname === 'translatedSegments') {
               try {
                 const value = part.value;
                 req.log.info(`TranscriptionController: Campo translatedSegments recebido (${value.length} chars)`);
                 
+                // Log parcial do conteúdo para debug
+                req.log.info(`TranscriptionController: Primeiros 200 chars: ${value.substring(0, 200)}...`);
+                
                 translatedSegments = JSON.parse(value);
                 req.log.info(`TranscriptionController: ${translatedSegments?.length || 0} segmentos traduzidos processados`);
+                break; // Parar após encontrar os segmentos
               } catch (parseError) {
                 req.log.error(`Erro ao fazer parse dos segmentos: ${parseError}`);
+                req.log.error(`Conteúdo problemático: ${part.value?.substring(0, 100)}...`);
               }
             }
-            
-            // Continuar apenas se não tivermos tudo ou não atingimos o limite
-            if (partsProcessed < maxParts && (!fileUpload || translatedSegments.length === 0)) {
-              setImmediate(processNextPart);
-            } else {
-              req.log.info(`TranscriptionController: Parando processamento - arquivo: ${!!fileUpload}, segmentos: ${translatedSegments.length}, partes: ${partsProcessed}`);
-              resolve();
-            }
-            
-          } catch (error) {
-            req.log.error(`Erro ao processar parte: ${error}`);
-            reject(error);
           }
-        };
-        
-        processNextPart();
-      });
-
-      // Timeout de 5 segundos
-      const timeout = new Promise<void>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout no processamento multipart')), 5000);
-      });
-
-      try {
-        await Promise.race([collectParts, timeout]);
-      } catch (error) {
-        req.log.error(`Erro no multipart: ${error}`);
-        
-        // Fallback: tentar obter apenas o arquivo
-        if (!fileUpload) {
-          try {
-            fileUpload = await (req as any).file() as FileUpload;
-            req.log.info('TranscriptionController: Arquivo obtido via fallback');
-          } catch (fallbackError) {
-            req.log.error(`Erro no fallback: ${fallbackError}`);
+          
+          // Evitar loop infinito
+          if (partsProcessed >= maxParts) {
+            req.log.warn(`TranscriptionController: Limite de ${maxParts} partes atingido, parando`);
+            break;
           }
         }
+        
+        req.log.info(`TranscriptionController: Processamento de campos concluído - ${partsProcessed} partes processadas`);
+        
+      } catch (error) {
+        req.log.error(`Erro no processamento multipart: ${error}`);
+        req.log.error(`Stack trace: ${error instanceof Error ? error.stack : 'N/A'}`);
       }
 
       req.log.info(`TranscriptionController: Processamento concluído - arquivo: ${!!fileUpload}, segmentos: ${translatedSegments.length}`);
