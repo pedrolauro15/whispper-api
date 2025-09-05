@@ -146,189 +146,41 @@ export class TranscriptionController {
     try {
       req.log.info('TranscriptionController: Iniciando geração de vídeo com legendas traduzidas');
 
+      // VERSÃO MOCK TEMPORÁRIA - SIMPLIFICADA PARA DEBUG
+      req.log.warn('TranscriptionController: ⚠️ USANDO DADOS MOCK PARA DEBUG!');
+      
+      // Obter arquivo via método simples (evitar multipart infinito)
       let fileUpload: FileUpload | null = null;
-      let translatedSegments: any[] = [];
-
-      // Estratégia 1: Tentar processar todas as partes com timeout por parte
-      req.log.info('TranscriptionController: Estratégia 1 - Processando multipart com timeout...');
-      
       try {
-        const parts = (req as any).parts();
-        let partCount = 0;
-        
-        // Processar com timeout mais agressivo por parte
-        const processAllParts = async () => {
-          const partPromises: Promise<void>[] = [];
-          
-          // Usar async iterator com timeout
-          const iterator = parts[Symbol.asyncIterator]();
-          
-          while (partCount < 50) {
-            partCount++;
-            req.log.info(`TranscriptionController: Tentando processar parte ${partCount}...`);
-            
-            try {
-              // Timeout individual por parte (2 segundos)
-              const partPromise = Promise.race([
-                iterator.next(),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error(`Timeout parte ${partCount}`)), 2000)
-                )
-              ]);
-              
-              const { value: part, done } = await partPromise;
-              
-              if (done) {
-                req.log.info(`TranscriptionController: ✅ Fim do iterator na parte ${partCount}`);
-                break;
-              }
-              
-              req.log.info(`TranscriptionController: Parte ${partCount} - tipo: ${part.type}, fieldname: ${part.fieldname || 'N/A'}`);
-              
-              if (part.type === 'file') {
-                fileUpload = part as FileUpload;
-                req.log.info(`TranscriptionController: ✅ Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
-              } else if (part.type === 'field') {
-                req.log.info(`TranscriptionController: Campo "${part.fieldname}" - valor: ${part.value?.length || 0} chars`);
-                req.log.info(`TranscriptionController: 🔍 CAMPO DEBUG - Nome: "${part.fieldname}", Tipo: ${typeof part.value}, Conteúdo: "${part.value?.substring(0, 100)}..."`);
-                
-                if (part.fieldname === 'translatedSegments') {
-                  try {
-                    const value = part.value;
-                    req.log.info(`TranscriptionController: ✅ Campo translatedSegments encontrado (${value?.length || 0} chars)`);
-                    
-                    if (value) {
-                      req.log.info(`TranscriptionController: Dados iniciais: ${value.substring(0, 200)}...`);
-                      translatedSegments = JSON.parse(value);
-                      req.log.info(`TranscriptionController: ✅ ${translatedSegments?.length || 0} segmentos processados com sucesso`);
-                      
-                      if (translatedSegments.length > 0) {
-                        req.log.info(`TranscriptionController: Primeiro segmento: ${JSON.stringify(translatedSegments[0])}`);
-                      }
-                    } else {
-                      req.log.warn('TranscriptionController: ⚠️ Campo translatedSegments vazio');
-                    }
-                  } catch (parseError) {
-                    req.log.error(`TranscriptionController: ❌ Erro ao processar segmentos: ${parseError}`);
-                    req.log.error(`TranscriptionController: Dados problemáticos: ${part.value?.substring(0, 200)}...`);
-                  }
-                } else {
-                  req.log.info(`TranscriptionController: 📝 Outro campo detectado: "${part.fieldname}"`);
-                }
-              }
-              
-              // Se já temos tudo, parar
-              if (fileUpload && translatedSegments.length > 0) {
-                req.log.info('TranscriptionController: ✅ Dados completos, finalizando processamento');
-                break;
-              }
-              
-            } catch (partError) {
-              req.log.error(`TranscriptionController: ⚠️ Erro/timeout na parte ${partCount}: ${partError}`);
-              // Continuar tentando outras partes
-              continue;
-            }
-          }
-        };
-        
-        // Timeout geral de 10 segundos
-        await Promise.race([
-          processAllParts(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout geral processamento')), 10000)
-          )
-        ]);
-        
-        req.log.info(`TranscriptionController: Estratégia 1 concluída - arquivo: ${!!fileUpload}, segmentos: ${translatedSegments.length}`);
-        
-      } catch (strategy1Error) {
-        req.log.error(`Estratégia 1 falhou: ${strategy1Error}`);
-        
-        // Estratégia 2: Processar separadamente
-        req.log.info('TranscriptionController: Estratégia 2 - Processamento separado...');
-        
-        try {
-          // Tentar obter arquivo primeiro
-          if (!fileUpload) {
-            const filePart = await (req as any).file();
-            if (filePart) {
-              fileUpload = filePart;
-              req.log.info(`TranscriptionController: Arquivo obtido via estratégia 2 - ${filePart.filename}`);
-            }
-          }
-          
-          // Tentar obter campos via query params ou body como fallback
-          if (translatedSegments.length === 0) {
-            const body = req.body as any;
-            if (body && body.translatedSegments) {
-              try {
-                translatedSegments = Array.isArray(body.translatedSegments) ? 
-                  body.translatedSegments : 
-                  JSON.parse(body.translatedSegments);
-                req.log.info(`TranscriptionController: ✅ Segmentos obtidos via body - ${translatedSegments.length} itens`);
-              } catch (bodyError) {
-                req.log.error(`Erro ao processar body: ${bodyError}`);
-              }
-            }
-          }
-          
-        } catch (strategy2Error) {
-          req.log.error(`Estratégia 2 falhou: ${strategy2Error}`);
-        }
-      }      // Log do estado final e diagnóstico
-      req.log.info(`TranscriptionController: ===== DIAGNÓSTICO FINAL =====`);
-      req.log.info(`TranscriptionController: Arquivo recebido: ${!!fileUpload}`);
-      req.log.info(`TranscriptionController: Segmentos recebidos: ${translatedSegments.length}`);
-      req.log.info(`TranscriptionController: Headers: ${JSON.stringify(req.headers['content-type'])}`);
-      req.log.info(`TranscriptionController: Query params: ${JSON.stringify(req.query)}`);
-      
-      // Se ainda não temos segmentos, tentar debug do request
-      if (translatedSegments.length === 0) {
-        req.log.error('TranscriptionController: ❌ PROBLEMA: Nenhum segmento traduzido recebido');
-        req.log.error('TranscriptionController: Isso pode indicar:');
-        req.log.error('TranscriptionController: 1. Frontend não está enviando o campo "translatedSegments"');
-        req.log.error('TranscriptionController: 2. Campo está sendo enviado com nome diferente');
-        req.log.error('TranscriptionController: 3. Dados estão sendo corrompidos no envio');
-        req.log.error('TranscriptionController: 4. Multipart está sendo processado incorretamente');
-        
-        // Tentar examinar raw request
-        const rawBody = req.body;
-        req.log.info(`TranscriptionController: Raw body type: ${typeof rawBody}`);
-        req.log.info(`TranscriptionController: Raw body keys: ${rawBody ? Object.keys(rawBody) : 'null'}`);
+        fileUpload = await (req as any).file() as FileUpload;
+        req.log.info(`TranscriptionController: ✅ Arquivo recebido - ${fileUpload.filename} (${fileUpload.mimetype})`);
+      } catch (fileError) {
+        req.log.error(`TranscriptionController: ❌ Erro ao obter arquivo: ${fileError}`);
+        return reply.code(400).send({
+          error: 'Nenhum arquivo enviado'
+        } as ErrorResponse);
       }
 
-      req.log.info(`TranscriptionController: ================================`);
+      // Usar dados mock para teste da pipeline
+      const translatedSegments = [
+        { start: 0, end: 3, text: "Este é um teste de legenda traduzida." },
+        { start: 3, end: 6, text: "Segunda parte do teste de tradução." },
+        { start: 6, end: 9, text: "Terceira e última parte do teste mock." }
+      ];
+      
+      req.log.info(`TranscriptionController: 📝 Usando ${translatedSegments.length} segmentos mock para teste`);
 
+      // Validações
       if (!fileUpload) {
-        req.log.error('TranscriptionController: ❌ Falha final - nenhum arquivo recebido');
         return reply.code(400).send({
           error: 'Nenhum arquivo enviado'
         } as ErrorResponse);
       }
 
       if (!this.isValidVideoFile(fileUpload)) {
-        req.log.error(`TranscriptionController: ❌ Falha final - arquivo inválido: ${fileUpload.mimetype}`);
         return reply.code(400).send({
           error: 'Tipo de arquivo inválido. Envie um arquivo de vídeo.',
           detail: `Tipo recebido: ${fileUpload.mimetype}`
-        } as ErrorResponse);
-      }
-
-      if (!translatedSegments || !Array.isArray(translatedSegments) || translatedSegments.length === 0) {
-        req.log.error(`TranscriptionController: ❌ Falha final - segmentos inválidos`);
-        req.log.error(`TranscriptionController: - É Array: ${Array.isArray(translatedSegments)}`);
-        req.log.error(`TranscriptionController: - Length: ${translatedSegments?.length || 0}`);
-        req.log.error(`TranscriptionController: - Tipo: ${typeof translatedSegments}`);
-        
-        return reply.code(400).send({
-          error: 'Segmentos traduzidos são obrigatórios',
-          detail: 'Envie os segmentos traduzidos via campo "translatedSegments" no formulário multipart. Nenhum segmento foi recebido pelo servidor.',
-          debug: {
-            fileReceived: !!fileUpload,
-            segmentsReceived: translatedSegments?.length || 0,
-            segmentsType: typeof translatedSegments,
-            isArray: Array.isArray(translatedSegments)
-          }
         } as ErrorResponse);
       }
 
@@ -347,7 +199,7 @@ export class TranscriptionController {
         marginVertical: parseInt(query.marginVertical) || 20
       };
 
-      req.log.info('TranscriptionController: Iniciando processamento do vídeo com segmentos traduzidos');
+      req.log.info('TranscriptionController: 🎬 Iniciando processamento do vídeo com dados mock');
 
       // Usar o método que gera vídeo com segmentos customizados
       const result = await this.transcriptionService.generateVideoWithCustomSegments(
@@ -367,7 +219,7 @@ export class TranscriptionController {
         } as ErrorResponse);
       }
 
-      req.log.info('TranscriptionController: Vídeo com legendas traduzidas gerado com sucesso');
+      req.log.info('TranscriptionController: ✅ Vídeo com legendas traduzidas gerado com sucesso (versão mock)');
 
       // Headers para download
       const fileName = fileUpload.filename 
